@@ -105,11 +105,11 @@ if app_mode == "📡 Live Monitor (V13)":
                     # Momentum
                     st.progress(buys / (buys+sells) if (buys+sells) > 0 else 0.5, text=f"Momentum: {buys} Buys vs {sells} Sells")
                     
-                    # Security Gates
+                   # Security Gates
                     st.subheader("🛡️ Security Gates")
                     g1, g2, g3 = st.columns(3)
                     
-                    # LP Gate
+                    # LP Gate (Fixed)
                     lp_locked = "Unknown"
                     if security:
                         lp_pct = 0
@@ -118,20 +118,30 @@ if app_mode == "📡 Live Monitor (V13)":
                                 lp_pct = m['lp']['lpLocked']
                         lp_locked = f"{lp_pct:.1f}% Locked"
                     
-                    g1.success(f"LP: {lp_locked}") if "Unknown" not in lp_locked else g1.warning("LP: Unverified")
+                    if "Unknown" not in lp_locked:
+                        g1.success(f"LP: {lp_locked}")
+                    else:
+                        g1.warning("LP: Unverified")
                     
-                    # Bundle Gate
+                    # Bundle Gate (Fixed)
                     is_bundled = False
                     if security and security.get('risks'):
                         for r in security['risks']:
                             if 'bundle' in r.get('name', '').lower(): is_bundled = True
                     
-                    g2.error("⚠️ BUNDLE DETECTED") if is_bundled else g2.success("✅ No Bundles")
+                    if is_bundled:
+                        g2.error("⚠️ BUNDLE DETECTED")
+                    else:
+                        g2.success("✅ No Bundles")
                     
-                    # Vol Gate
-                    g3.success(f"Vol: ${vol_m5:,.0f}") if vol_m5 > 5000 else g3.warning(f"Low Vol: ${vol_m5:,.0f}")
+                    # Vol Gate (Fixed)
+                    if vol_m5 > 5000:
+                        g3.success(f"Vol: ${vol_m5:,.0f}")
+                    else:
+                        g3.warning(f"Low Vol: ${vol_m5:,.0f}")
 
                     st.caption(f"Last Updated: {datetime.now().strftime('%H:%M:%S')}")
+                    
             
             except Exception as e:
                 dashboard.error(f"Error parsing data: {e}")
