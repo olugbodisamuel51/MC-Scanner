@@ -247,38 +247,100 @@ elif app_mode == "🚫 Anti-Rug Checker":
                     st.success("✅ Distribution Looks Healthy")
 
 # ==========================================
-# TOOL 4: WHALE HUNTER
+# TOOL 4: WHALE HUNTER (LIVE AUTO-REFRESH)
 # ==========================================
 elif app_mode == "🐋 Whale Hunter":
-    st.title("🐋 Whale Hunter")
-    token = st.text_input("Enter Token Address", key="whale_token")
+    st.title("🐋 Whale Hunter (Live)")
     
-    if st.button("Hunt Whales"):
-        pair = get_dex_data(token)
-        if pair:
-            vol_5m = pair.get('volume', {}).get('m5', 0)
-            change_5m = pair.get('priceChange', {}).get('m5', 0)
-            buys = pair.get('txns', {}).get('m5', {}).get('buys', 0)
-            sells = pair.get('txns', {}).get('m5', {}).get('sells', 0)
-            total = buys + sells
-            buy_pressure = (buys/total*100) if total > 0 else 50
-            
-            st.metric("5m Volume", f"${vol_5m:,.0f}")
-            st.metric("Price Change (5m)", f"{change_5m}%")
-            
-            alert = "⚪ Stable"
-            if vol_5m > 5000 and abs(change_5m) < 0.1:
-                if buy_pressure > 60: alert = "🧱 HIDDEN BUY WALL (Accumulation)"
-                elif buy_pressure < 40: alert = "🧱 HIDDEN SELL WALL (Distribution)"
-            elif change_5m < -2.0 and buy_pressure > 60:
-                alert = "🪤 BEAR TRAP (Price Fakeout)"
-            elif change_5m > 2.0 and buy_pressure < 40:
-                alert = "🎣 EXIT LIQUIDITY PUMP"
+    # Input Layout
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="whale_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="whale_refresh")
+    
+    # Start Toggle
+    is_hunting = st.toggle("🏹 Start Hunting", key="whale_active")
+    
+    if is_hunting and token:
+        # Create a placeholder to update metrics without duplicating them
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                pair = get_dex_data(token)
+                if not pair:
+                    dashboard.error("❌ Token not found. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+
+                # Extract Data
+                vol_5m = pair.get('volume', {}).get('m5', 0)
+                change_5m = pair.get('priceChange', {}).get('m5', 0)
+                buys = pair.get('txns', {}).get('m5', {}).get('buys', 0)
+                sells = pair.get('txns', {}).get('m5', {}).get('sells', 0)
+                total = buys + sells
+                buy_pressure = (buys/total*100) if total > 0 else 50
                 
-            if "Stable" not in alert:
-                st.warning(f"🚨 WHALE ALERT: {alert}")
-            else:
-                st.info("No active whale manipulation detected.")
+                # Logic
+                alert = "⚪ Stable"
+                alert_color = "off" # off, red, green, orange
+                
+                # 1. Hidden Walls
+                if vol_5m > 5000 and abs(change_5m) < 0.1:
+                    if buy_pressure > 60: 
+                        alert = "🧱 HIDDEN BUY WALL (Accumulation)"
+                        alert_color = "green"
+                    elif buy_pressure < 40: 
+                        alert = "🧱 HIDDEN SELL WALL (Distribution)"
+                        alert_color = "red"
+                
+                # 2. Manipulation
+                elif change_5m < -2.0 and buy_pressure > 60:
+                    alert = "🪤 BEAR TRAP (Price Fakeout)"
+                    alert_color = "green" # Good entry potential
+                elif change_5m > 2.0 and buy_pressure < 40:
+                    alert = "🎣 EXIT LIQUIDITY PUMP"
+                    alert_color = "red" # Danger
+                
+                # 3. Standard Movement
+                elif change_5m > 5:
+                    alert = "🚀 PUMPING HARD"
+                    alert_color = "green"
+                elif change_5m < -5:
+                    alert = "📉 DUMPING HARD"
+                    alert_color = "red"
+
+                # Update Dashboard inside the loop
+                with dashboard.container():
+                    st.markdown(f"### Status: {alert}")
+                    
+                    # Visual Alert Banner
+                    if alert_color == "red":
+                        st.error(f"🚨 ALERT: {alert}")
+                    elif alert_color == "green":
+                        st.success(f"✅ SIGNAL: {alert}")
+                    elif alert_color == "orange":
+                        st.warning(f"⚠️ CAUTION: {alert}")
+                    
+                    # Metrics Row
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("5m Volume", f"${vol_5m:,.0f}")
+                    m2.metric("Price Change (5m)", f"{change_5m}%")
+                    m3.metric("Buy Pressure", f"{buy_pressure:.0f}%", f"{buys} Buys / {sells} Sells")
+                    
+                    # Activity Chart (Simple Bar)
+                    st.caption("Buy vs Sell Pressure (5m)")
+                    st.progress(buy_pressure / 100, text=f"{buy_pressure:.1f}% Buys")
+                    
+                    st.divider()
+                    st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s)")
+
+            except Exception as e:
+                dashboard.error(f"Error: {e}")
+            
+            # Wait before next loop
+            time.sleep(refresh_rate)
 
 # ==========================================
 # TOOL 5: COIN STATE (IMPROVED)
