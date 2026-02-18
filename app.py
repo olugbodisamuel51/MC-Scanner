@@ -88,8 +88,17 @@ if app_mode == "📡 Live Monitor (V13)":
                 sells = pair.get('txns', {}).get('m5', {}).get('sells', 0)
                 pair_age_ms = pair.get('pairCreatedAt', 0)
                 
-                # Logic
+                # --- NEW AGE LOGIC ---
                 age_mins = (time.time() * 1000 - pair_age_ms) / 60000 if pair_age_ms else 0
+                
+                if age_mins > 1440: # More than 24 hours (1440 mins)
+                    age_display = f"{age_mins/1440:.1f} days"
+                elif age_mins > 60: # More than 60 mins
+                    age_display = f"{age_mins/60:.1f} hours"
+                else: # Minutes
+                    age_display = f"{age_mins:.0f} mins"
+                # ---------------------
+
                 lp_ratio = (liq / fdv * 100) if fdv > 0 else 0
                 drift = ((price - st.session_state.start_price) / st.session_state.start_price) * 100
                 
@@ -100,16 +109,16 @@ if app_mode == "📡 Live Monitor (V13)":
                     m1.metric("Price", f"${price:.6f}", f"{drift:.2f}% Session")
                     m2.metric("Market Cap", f"${fdv:,.0f}")
                     m3.metric("Liquidity", f"${liq:,.0f}", f"{lp_ratio:.1f}% Ratio")
-                    m4.metric("Age", f"{age_mins:.0f} mins")
+                    m4.metric("Age", age_display) # <--- Updated here
                     
                     # Momentum
                     st.progress(buys / (buys+sells) if (buys+sells) > 0 else 0.5, text=f"Momentum: {buys} Buys vs {sells} Sells")
                     
-                   # Security Gates
+                    # Security Gates (Corrected Display)
                     st.subheader("🛡️ Security Gates")
                     g1, g2, g3 = st.columns(3)
                     
-                    # LP Gate (Fixed)
+                    # LP Gate
                     lp_locked = "Unknown"
                     if security:
                         lp_pct = 0
@@ -123,7 +132,7 @@ if app_mode == "📡 Live Monitor (V13)":
                     else:
                         g1.warning("LP: Unverified")
                     
-                    # Bundle Gate (Fixed)
+                    # Bundle Gate
                     is_bundled = False
                     if security and security.get('risks'):
                         for r in security['risks']:
@@ -134,20 +143,19 @@ if app_mode == "📡 Live Monitor (V13)":
                     else:
                         g2.success("✅ No Bundles")
                     
-                    # Vol Gate (Fixed)
+                    # Vol Gate
                     if vol_m5 > 5000:
                         g3.success(f"Vol: ${vol_m5:,.0f}")
                     else:
                         g3.warning(f"Low Vol: ${vol_m5:,.0f}")
 
                     st.caption(f"Last Updated: {datetime.now().strftime('%H:%M:%S')}")
-                    
             
             except Exception as e:
                 dashboard.error(f"Error parsing data: {e}")
 
             time.sleep(refresh_rate)
-
+            
 # ==========================================
 # TOOL 2: SAFE ENTRY CHECK (V14)
 # ==========================================
