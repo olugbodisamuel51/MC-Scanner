@@ -273,7 +273,7 @@ elif app_mode == "🐋 Whale Hunter":
                 st.info("No active whale manipulation detected.")
 
 # ==========================================
-# TOOL 5: COIN STATE
+# TOOL 5: COIN STATE (IMPROVED)
 # ==========================================
 elif app_mode == "📊 Coin's State Analysis":
     st.title("📊 Coin's Phase Analyzer")
@@ -288,18 +288,34 @@ elif app_mode == "📊 Coin's State Analysis":
             age_hours = (time.time() - (created_at / 1000)) / 3600 if created_at else 0
             change_24 = pair.get('priceChange', {}).get('h24', 0)
             
+            # --- IMPROVED LOGIC ---
             phase = "Unknown"
-            if liq < 5000: phase = "💀 DEAD / RUGGED"
-            elif vol_24 < 1000: phase = "💤 DORMANT"
-            elif age_hours < 24: phase = "🚀 LAUNCH / DISCOVERY"
-            elif change_24 < -30: phase = "📉 DUMP"
-            elif change_24 > 30: phase = "📈 PUMP"
-            elif -10 < change_24 < 10 and vol_24 > 50000: phase = "⚖️ ACCUMULATION"
+            
+            if liq < 5000: 
+                phase = "💀 DEAD / RUGGED"
+            elif vol_24 < 1000: 
+                phase = "💤 DORMANT"
+            elif age_hours < 24: 
+                phase = "🚀 LAUNCH / DISCOVERY"
+            elif change_24 < -30: 
+                phase = "📉 DUMPING HARD"
+            elif -30 <= change_24 <= -10: 
+                phase = "🩸 BLEEDING / CORRECTION"  # <--- This catches your -24%
+            elif change_24 > 30: 
+                phase = "📈 PUMPING"
+            elif 10 <= change_24 <= 30:
+                phase = "🌲 STEADY GROWTH"
+            elif -10 < change_24 < 10:
+                if vol_24 > 50000:
+                    phase = "⚖️ ACCUMULATION (High Vol)"
+                else:
+                    phase = "🦀 CRAB / CHOP (Low Vol)"
             
             st.header(f"Diagnosis: {phase}")
-            st.json({
-                "Liquidity": f"${liq:,.0f}",
-                "Volume 24h": f"${vol_24:,.0f}",
-                "Age": f"{age_hours:.1f} hours",
-                "Change 24h": f"{change_24}%"
-            })
+            
+            # Display stats nicely
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Liquidity", f"${liq:,.0f}")
+            c2.metric("Volume 24h", f"${vol_24:,.0f}")
+            c3.metric("Age", f"{age_hours:.1f}h")
+            c4.metric("Change 24h", f"{change_24}%")
