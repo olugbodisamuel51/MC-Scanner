@@ -40,7 +40,8 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🛡️ Safe Entry Check (V14)",
     "🚫 Anti-Rug Checker",
     "🐋 Whale Hunter",
-    "📊 Coin's State Analysis"
+    "📊 Coin's State Analysis",
+    "🎯 Scalp Scanner (Live)"  # <--- Added Scalp Scanner here
 ])
 
 st.sidebar.markdown("---")
@@ -63,7 +64,6 @@ if app_mode == "📡 Live Monitor (V13)":
     if start_btn and token:
         dashboard = st.empty()
         
-        # Session state for tracking start price
         if 'start_price' not in st.session_state:
             st.session_state.start_price = None
 
@@ -76,7 +76,6 @@ if app_mode == "📡 Live Monitor (V13)":
                 time.sleep(5)
                 continue
                 
-            # Extract Data
             try:
                 price = float(pair.get('priceUsd', 0))
                 if st.session_state.start_price is None: st.session_state.start_price = price
@@ -88,37 +87,30 @@ if app_mode == "📡 Live Monitor (V13)":
                 sells = pair.get('txns', {}).get('m5', {}).get('sells', 0)
                 pair_age_ms = pair.get('pairCreatedAt', 0)
                 
-                # --- NEW AGE LOGIC ---
                 age_mins = (time.time() * 1000 - pair_age_ms) / 60000 if pair_age_ms else 0
                 
-                if age_mins > 1440: # More than 24 hours (1440 mins)
+                if age_mins > 1440: 
                     age_display = f"{age_mins/1440:.1f} days"
-                elif age_mins > 60: # More than 60 mins
+                elif age_mins > 60: 
                     age_display = f"{age_mins/60:.1f} hours"
-                else: # Minutes
+                else: 
                     age_display = f"{age_mins:.0f} mins"
-                # ---------------------
 
                 lp_ratio = (liq / fdv * 100) if fdv > 0 else 0
                 drift = ((price - st.session_state.start_price) / st.session_state.start_price) * 100
                 
-                # Render UI
                 with dashboard.container():
-                    # Top Metrics
                     m1, m2, m3, m4 = st.columns(4)
                     m1.metric("Price", f"${price:.6f}", f"{drift:.2f}% Session")
                     m2.metric("Market Cap", f"${fdv:,.0f}")
                     m3.metric("Liquidity", f"${liq:,.0f}", f"{lp_ratio:.1f}% Ratio")
-                    m4.metric("Age", age_display) # <--- Updated here
+                    m4.metric("Age", age_display) 
                     
-                    # Momentum
                     st.progress(buys / (buys+sells) if (buys+sells) > 0 else 0.5, text=f"Momentum: {buys} Buys vs {sells} Sells")
                     
-                    # Security Gates (Corrected Display)
                     st.subheader("🛡️ Security Gates")
                     g1, g2, g3 = st.columns(3)
                     
-                    # LP Gate
                     lp_locked = "Unknown"
                     if security:
                         lp_pct = 0
@@ -132,7 +124,6 @@ if app_mode == "📡 Live Monitor (V13)":
                     else:
                         g1.warning("LP: Unverified")
                     
-                    # Bundle Gate
                     is_bundled = False
                     if security and security.get('risks'):
                         for r in security['risks']:
@@ -143,7 +134,6 @@ if app_mode == "📡 Live Monitor (V13)":
                     else:
                         g2.success("✅ No Bundles")
                     
-                    # Vol Gate
                     if vol_m5 > 5000:
                         g3.success(f"Vol: ${vol_m5:,.0f}")
                     else:
@@ -169,7 +159,6 @@ elif app_mode == "🛡️ Safe Entry Check (V14)":
             if not pair:
                 st.error("Token not found.")
             else:
-                # Logic
                 fdv = pair.get('fdv', 0)
                 liq = pair.get('liquidity', {}).get('usd', 0)
                 created_at = pair.get('pairCreatedAt', 0)
@@ -178,10 +167,8 @@ elif app_mode == "🛡️ Safe Entry Check (V14)":
                 vol_5m = pair.get('volume', {}).get('m5', 0)
                 change_5m = pair.get('priceChange', {}).get('m5', 0)
                 
-                # Thresholds
                 req_ratio = 1.0 if fdv > 10_000_000 else 8.0
                 
-                # Display
                 st.markdown(f"### 🎯 Report: ${pair['baseToken']['symbol']}")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Market Cap", f"${fdv:,.0f}")
@@ -252,18 +239,15 @@ elif app_mode == "🚫 Anti-Rug Checker":
 elif app_mode == "🐋 Whale Hunter":
     st.title("🐋 Whale Hunter (Live)")
     
-    # Input Layout
     c1, c2 = st.columns([3, 1])
     with c1:
         token = st.text_input("Enter Token Address", key="whale_token")
     with c2:
         refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="whale_refresh")
     
-    # Start Toggle
     is_hunting = st.toggle("🏹 Start Hunting", key="whale_active")
     
     if is_hunting and token:
-        # Create a placeholder to update metrics without duplicating them
         dashboard = st.empty()
         
         while True:
@@ -274,7 +258,6 @@ elif app_mode == "🐋 Whale Hunter":
                     time.sleep(refresh_rate)
                     continue
 
-                # Extract Data
                 vol_5m = pair.get('volume', {}).get('m5', 0)
                 change_5m = pair.get('priceChange', {}).get('m5', 0)
                 buys = pair.get('txns', {}).get('m5', {}).get('buys', 0)
@@ -282,11 +265,9 @@ elif app_mode == "🐋 Whale Hunter":
                 total = buys + sells
                 buy_pressure = (buys/total*100) if total > 0 else 50
                 
-                # Logic
                 alert = "⚪ Stable"
-                alert_color = "off" # off, red, green, orange
+                alert_color = "off"
                 
-                # 1. Hidden Walls
                 if vol_5m > 5000 and abs(change_5m) < 0.1:
                     if buy_pressure > 60: 
                         alert = "🧱 HIDDEN BUY WALL (Accumulation)"
@@ -295,15 +276,13 @@ elif app_mode == "🐋 Whale Hunter":
                         alert = "🧱 HIDDEN SELL WALL (Distribution)"
                         alert_color = "red"
                 
-                # 2. Manipulation
                 elif change_5m < -2.0 and buy_pressure > 60:
                     alert = "🪤 BEAR TRAP (Price Fakeout)"
-                    alert_color = "green" # Good entry potential
+                    alert_color = "green" 
                 elif change_5m > 2.0 and buy_pressure < 40:
                     alert = "🎣 EXIT LIQUIDITY PUMP"
-                    alert_color = "red" # Danger
+                    alert_color = "red" 
                 
-                # 3. Standard Movement
                 elif change_5m > 5:
                     alert = "🚀 PUMPING HARD"
                     alert_color = "green"
@@ -311,11 +290,9 @@ elif app_mode == "🐋 Whale Hunter":
                     alert = "📉 DUMPING HARD"
                     alert_color = "red"
 
-                # Update Dashboard inside the loop
                 with dashboard.container():
                     st.markdown(f"### Status: {alert}")
                     
-                    # Visual Alert Banner
                     if alert_color == "red":
                         st.error(f"🚨 ALERT: {alert}")
                     elif alert_color == "green":
@@ -323,13 +300,11 @@ elif app_mode == "🐋 Whale Hunter":
                     elif alert_color == "orange":
                         st.warning(f"⚠️ CAUTION: {alert}")
                     
-                    # Metrics Row
                     m1, m2, m3 = st.columns(3)
                     m1.metric("5m Volume", f"${vol_5m:,.0f}")
                     m2.metric("Price Change (5m)", f"{change_5m}%")
                     m3.metric("Buy Pressure", f"{buy_pressure:.0f}%", f"{buys} Buys / {sells} Sells")
                     
-                    # Activity Chart (Simple Bar)
                     st.caption("Buy vs Sell Pressure (5m)")
                     st.progress(buy_pressure / 100, text=f"{buy_pressure:.1f}% Buys")
                     
@@ -339,7 +314,6 @@ elif app_mode == "🐋 Whale Hunter":
             except Exception as e:
                 dashboard.error(f"Error: {e}")
             
-            # Wait before next loop
             time.sleep(refresh_rate)
 
 # ==========================================
@@ -358,7 +332,6 @@ elif app_mode == "📊 Coin's State Analysis":
             age_hours = (time.time() - (created_at / 1000)) / 3600 if created_at else 0
             change_24 = pair.get('priceChange', {}).get('h24', 0)
             
-            # --- IMPROVED LOGIC ---
             phase = "Unknown"
             
             if liq < 5000: 
@@ -370,7 +343,7 @@ elif app_mode == "📊 Coin's State Analysis":
             elif change_24 < -30: 
                 phase = "📉 DUMPING HARD"
             elif -30 <= change_24 <= -10: 
-                phase = "🩸 BLEEDING / CORRECTION"  # <--- This catches your -24%
+                phase = "🩸 BLEEDING / CORRECTION"  
             elif change_24 > 30: 
                 phase = "📈 PUMPING"
             elif 10 <= change_24 <= 30:
@@ -383,9 +356,129 @@ elif app_mode == "📊 Coin's State Analysis":
             
             st.header(f"Diagnosis: {phase}")
             
-            # Display stats nicely
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Liquidity", f"${liq:,.0f}")
             c2.metric("Volume 24h", f"${vol_24:,.0f}")
             c3.metric("Age", f"{age_hours:.1f}h")
             c4.metric("Change 24h", f"{change_24}%")
+
+# ==========================================
+# TOOL 6: SCALP SCANNER V5 (LIVE AUTO-REFRESH)
+# ==========================================
+elif app_mode == "🎯 Scalp Scanner (Live)":
+    st.title("🎯 Scalp Scanner V5 (Live)")
+    st.markdown("Strict entry logic engine optimizing for `+30% to +50%` scalps.")
+    
+    # Input Layout
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="scalp_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="scalp_refresh")
+    
+    # Start Toggle
+    is_scanning = st.toggle("🎯 Start Scalp Scanner", key="scalp_active")
+    
+    if is_scanning and token:
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                pair = get_dex_data(token)
+                
+                if not pair:
+                    dashboard.error("❌ Token not found or liquidity pool isn't live yet. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+
+                symbol = pair.get('baseToken', {}).get('symbol', 'Unknown')
+                dex = pair.get('dexId', 'Unknown').upper()
+                price_usd = float(pair.get('priceUsd', '0'))
+                liquidity = pair.get('liquidity', {}).get('usd', 0)
+                
+                m5_volume = pair.get('volume', {}).get('m5', 0)
+                m5_buys = pair.get('txns', {}).get('m5', {}).get('buys', 0)
+                m5_sells = pair.get('txns', {}).get('m5', {}).get('sells', 0)
+                m5_price_change = pair.get('priceChange', {}).get('m5', 0)
+                
+                total_txns_5m = m5_buys + m5_sells
+                buy_sell_ratio = round(m5_buys / m5_sells, 2) if m5_sells > 0 else float(m5_buys)
+                
+                # --- SCALPER'S PROBABILITY ENGINE ---
+                win_prob = 0
+                
+                if m5_volume > 50000: win_prob += 30
+                elif m5_volume > 20000: win_prob += 15
+                
+                if buy_sell_ratio > 2.0: win_prob += 30
+                elif buy_sell_ratio > 1.3: win_prob += 15
+                
+                if total_txns_5m > 400: win_prob += 20
+                elif total_txns_5m > 200: win_prob += 10
+                
+                if 5 <= m5_price_change <= 20: win_prob += 20  
+                elif 0 < m5_price_change < 5: win_prob += 5    
+                elif m5_price_change > 25: win_prob -= 30      
+                elif m5_price_change < 0: win_prob -= 50       
+                
+                win_prob = max(0, min(100, win_prob))
+
+                # --- PNL PROJECTION LOGIC ---
+                if win_prob >= 80:
+                    pnl_est = "+30% to +50% (High Conviction Scalp)"
+                    state = "🎯 PRIME SCALP ENTRY: Massive heat, perfect momentum."
+                    status_color = "success"
+                elif win_prob >= 60:
+                    pnl_est = "+15% to +30% (Moderate Scalp)"
+                    state = "🔥 HEATING UP: Good pressure, monitor closely for breakout."
+                    status_color = "info"
+                elif win_prob >= 40:
+                    pnl_est = "Break-even to +10% (Chop Zone)"
+                    state = "⚖️ CONSOLIDATING: Sideways movement, wait for confirmation."
+                    status_color = "warning"
+                elif m5_price_change < -5 and buy_sell_ratio > 1.1 and m5_volume > 10000:
+                    pnl_est = "-30% to -60% (Exit Liquidity)"
+                    state = "🚨 DISTRIBUTION TRAP: Whales dumping on retail buys."
+                    status_color = "error"
+                elif m5_price_change > 25 and win_prob < 40:
+                    pnl_est = "-40% to -80% (Buying the Top)"
+                    state = "🌋 OVEREXTENDED: Danger of severe pullback. Do not chase."
+                    status_color = "error"
+                else:
+                    pnl_est = "-50% to -100% (Bleed/Dump)"
+                    state = "🩸 AVOID / CUT LOSSES: Momentum is dead."
+                    status_color = "error"
+
+                # Update Dashboard
+                with dashboard.container():
+                    st.subheader(f"TOKEN: {symbol} | DEX: {dex}")
+                    
+                    # Alert Banner
+                    if status_color == "success": st.success(state)
+                    elif status_color == "info": st.info(state)
+                    elif status_color == "warning": st.warning(state)
+                    else: st.error(state)
+                        
+                    # Target & Assurance Metrics
+                    col1, col2 = st.columns(2)
+                    col1.metric("⚡ WIN ASSURANCE", f"{win_prob}%")
+                    col2.metric("💰 PROJECTED PnL", pnl_est)
+                    
+                    st.progress(win_prob / 100, text="Engine Confidence Score")
+                    st.divider()
+                    
+                    # Data Breakdown
+                    st.markdown("### 5-Minute Micro-Metrics")
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Volume Velocity", f"${m5_volume:,.2f}")
+                    m2.metric("Price Accel", f"{m5_price_change}%", f"${price_usd:,.6f}")
+                    m3.metric("Txn Freq", f"{total_txns_5m}", f"Ratio: {buy_sell_ratio}")
+                    m4.metric("Liquidity", f"${liquidity:,.2f}")
+                    
+                    st.caption(f"Pressure Breakdown: {m5_buys} Buys / {m5_sells} Sells")
+                    st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s)")
+
+            except Exception as e:
+                dashboard.error(f"Error fetching data: {e}")
+            
+            time.sleep(refresh_rate)
