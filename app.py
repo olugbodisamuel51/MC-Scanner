@@ -59,9 +59,9 @@ app_mode = st.sidebar.radio("Select Tool", [
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
-tg_token = st.sidebar.text_input("8534212195:AAGnzuJVxDaGljBOQNjpkWd7BLg_iLLAilM", type="password")
-tg_chat_id = st.sidebar.text_input("692637798", type="password")
-
+# Hardcoded Telegram credentials so you don't need the input boxes
+tg_token = "8534212195:AAGnzuJVxDaGljBOQNjpkWd7BLg_iLLAiIM"
+tg_chat_id = "692637798"
 st.sidebar.markdown("---")
 st.sidebar.info("Developed for Live Solana Monitoring")
 
