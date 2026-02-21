@@ -189,49 +189,110 @@ elif app_mode == "🛡️ Safe Entry Check (V14)":
                     st.write("Matches safety criteria.")
 
 # ==========================================
-# TOOL 3: ANTI-RUG CHECKER
+# TOOL 3: LIVE ANTI-RUG / EXIT MONITOR
 # ==========================================
 elif app_mode == "🚫 Anti-Rug Checker":
-    st.title("🚫 Anti-Rug Analyzer")
-    token = st.text_input("Enter Token Address", key="rug_token")
+    st.title("🚫 Live Anti-Rug / Exit Monitor")
+    st.markdown("Track whale accumulation in real-time. If concentration increases, **GET OUT**.")
     
-    if st.button("Scan for Rugs"):
-        with st.spinner("Scanning Holder Distribution..."):
-            dex = get_dex_data(token)
-            rug = get_rugcheck_data(token)
-            
-            if not dex or not rug:
-                st.error("Data unavailable.")
-            else:
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="rug_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="rug_refresh")
+    
+    is_scanning = st.toggle("🛡️ Start Live Protection", key="rug_active")
+    
+    if is_scanning and token:
+        dashboard = st.empty()
+        
+        # Initialize session state to track the baseline percentages
+        if 'baseline_top1' not in st.session_state or st.session_state.get('rug_current_token') != token:
+            st.session_state.baseline_top1 = None
+            st.session_state.baseline_top10 = None
+            st.session_state.rug_current_token = token
+
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Data unavailable or fetching error. Retrying...")
+                    time.sleep(refresh_rate)
+                    continue
+                    
                 top_holders = rug.get('topHolders', [])
                 top_1_pct = top_holders[0].get('pct', 0) if top_holders else 0
                 top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                market_cap = dex.get('fdv', 0)
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
                 
-                st.markdown(f"### Security Scan: {dex['baseToken']['name']}")
+                # Set baseline on first successful scan
+                if st.session_state.baseline_top1 is None:
+                    st.session_state.baseline_top1 = top_1_pct
+                    st.session_state.baseline_top10 = top_10_pct
                 
-                col1, col2 = st.columns(2)
+                # Calculate movement
+                delta_top1 = top_1_pct - st.session_state.baseline_top1
+                delta_top10 = top_10_pct - st.session_state.baseline_top10
                 
-                risk = False
-                with col1:
-                    st.markdown("**Whale Concentration**")
-                    if top_1_pct > 5:
-                        st.error(f"❌ Top Holder: {top_1_pct:.2f}% (>5%)")
-                        risk = True
+                # Determine Exit Logic
+                is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 # Tolerance threshold for micro-fluctuations
+                is_danger = top_1_pct > 5 or top_10_pct > 30
+                
+                with dashboard.container():
+                    st.markdown(f"### Security Scan: ${symbol} | MC: ${market_cap:,.0f}")
+                    
+                    # --- DYNAMIC EXIT INSTRUCTIONS ---
+                    if is_consolidating:
+                        st.error("🚨 EXIT NOW: WHALES ARE CONSOLIDATING! 🚨")
+                        st.markdown("> **Instruction:** Top holder percentages are increasing since you started tracking. Sell to avoid the incoming dump.")
+                    elif is_danger:
+                        st.warning("⚠️ CAUTION: High Risk Thresholds Breached. Prepare to exit.")
                     else:
-                        st.success(f"✅ Top Holder: {top_1_pct:.2f}%")
+                        st.success("✅ SAFE ZONES: Holding steady. No signs of wallet consolidation.")
                         
-                with col2:
-                    st.markdown("**Top 10 Team**")
-                    if top_10_pct > 30:
-                        st.error(f"❌ Top 10: {top_10_pct:.2f}% (>30%)")
-                        risk = True
-                    else:
-                        st.success(f"✅ Top 10: {top_10_pct:.2f}%")
+                    st.divider()
+                    
+                    # --- METRICS ---
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Top Holder (Whale)**")
+                        delta_color = "inverse" if delta_top1 > 0 else "normal"
+                        st.metric(
+                            "Top 1%", 
+                            f"{top_1_pct:.2f}%", 
+                            f"{delta_top1:+.2f}% since scan started", 
+                            delta_color=delta_color
+                        )
+                        if top_1_pct > 5:
+                            st.error(f"❌ Base Risk: > 5%")
+                        else:
+                            st.success(f"✅ Base Risk: < 5%")
+                            
+                    with col2:
+                        st.markdown("**Top 10 Team/Snipers**")
+                        delta_color2 = "inverse" if delta_top10 > 0 else "normal"
+                        st.metric(
+                            "Top 10%", 
+                            f"{top_10_pct:.2f}%", 
+                            f"{delta_top10:+.2f}% since scan started",
+                            delta_color=delta_color2
+                        )
+                        if top_10_pct > 30:
+                            st.error(f"❌ Base Risk: > 30%")
+                        else:
+                            st.success(f"✅ Base Risk: < 30%")
+
+                    st.caption(f"Tracking initialized at: Top 1 ({st.session_state.baseline_top1:.2f}%) | Top 10 ({st.session_state.baseline_top10:.2f}%)")
+                    st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s)")
+                    
+            except Exception as e:
+                dashboard.error(f"Error checking rug status: {e}")
                 
-                if risk:
-                    st.error("⛔ DANGER: High Whale Manipulation Risk")
-                else:
-                    st.success("✅ Distribution Looks Healthy")
+            time.sleep(refresh_rate)
 
 # ==========================================
 # TOOL 4: WHALE HUNTER (LIVE AUTO-REFRESH)
