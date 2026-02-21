@@ -281,10 +281,10 @@ elif app_mode == "🚫 Anti-Rug Checker":
                             f"{delta_top10:+.2f}% since scan started",
                             delta_color=delta_color2
                         )
-                        if top_10_pct > 30:
-                            st.error(f"❌ Base Risk: > 30%")
+                        if top_10_pct > 25:
+                            st.error(f"❌ Base Risk: > 25%")
                         else:
-                            st.success(f"✅ Base Risk: < 30%")
+                            st.success(f"✅ Base Risk: < 25%")
 
                     st.caption(f"Tracking initialized at: Top 1 ({st.session_state.baseline_top1:.2f}%) | Top 10 ({st.session_state.baseline_top10:.2f}%)")
                     st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s)")
