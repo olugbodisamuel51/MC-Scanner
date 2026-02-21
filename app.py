@@ -63,7 +63,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
 
 # Hardcoded Telegram credentials so you don't need the input boxes
-tg_token = "8534212195:AAGnzuJVxDaGljBOQNjpkWd7BLg_iLLAiIM"
+tg_token = "8534212195:AAH-PYRMFR1h7kt2vGAbx6hH26QWCP0VLDQ"
 tg_chat_id = "692637798"
 
 st.sidebar.info("Developed for Live Solana Monitoring")
