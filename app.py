@@ -62,8 +62,8 @@ app_mode = st.sidebar.radio("Select Tool", [
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
 
-# Hardcoded Telegram credentials so you don't need the input boxes
-tg_token = "8534212195:AAH-PYRMFR1h7kt2vGAbx6hH26QWCP0VLDQ"
+# Hardcoded Telegram credentials
+tg_token = "8229329471:AAE0o6rLbRMeGjMZfYQCe_KYclnL8w19uKQ" # Using your valid token from the screenshot
 tg_chat_id = "1692637798"
 
 st.sidebar.info("Developed for Live Solana Monitoring")
@@ -227,10 +227,12 @@ elif app_mode == "🚫 Anti-Rug Checker":
     if is_scanning and token:
         dashboard = st.empty()
         
-        # Initialize session state to track the baseline percentages
+        # Initialize session state to track the baseline percentages and step alerts
         if 'baseline_top1' not in st.session_state or st.session_state.get('rug_current_token') != token:
             st.session_state.baseline_top1 = None
             st.session_state.baseline_top10 = None
+            st.session_state.last_alerted_top1 = None
+            st.session_state.last_alerted_top10 = None
             st.session_state.rug_current_token = token
             st.session_state.last_alert_state = "SAFE"
 
@@ -254,34 +256,57 @@ elif app_mode == "🚫 Anti-Rug Checker":
                 if st.session_state.baseline_top1 is None:
                     st.session_state.baseline_top1 = top_1_pct
                     st.session_state.baseline_top10 = top_10_pct
+                    st.session_state.last_alerted_top1 = top_1_pct
+                    st.session_state.last_alerted_top10 = top_10_pct
                 
-                # Calculate movement
+                # Calculate total movement since scan started
                 delta_top1 = top_1_pct - st.session_state.baseline_top1
                 delta_top10 = top_10_pct - st.session_state.baseline_top10
                 
-                # Determine Exit Logic
-                is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 
-                is_danger = top_1_pct > 5 or top_10_pct > 30
+                # Calculate micro-movement since the LAST alert
+                step_top1 = top_1_pct - st.session_state.last_alerted_top1
+                step_top10 = top_10_pct - st.session_state.last_alerted_top10
                 
-                # --- TELEGRAM ALERT LOGIC (with HTML formatting) ---
-                if is_consolidating or is_danger:
-                    current_state = "DANGER" if is_danger else "CONSOLIDATING"
+                # Determine Risk Thresholds
+                is_danger = top_1_pct > 5 or top_10_pct > 30
+                is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 
+                
+                # Trigger for +0.01% micro-accumulation (using 0.009 to catch floating point math rounding)
+                is_micro_increase = step_top1 >= 0.009 or step_top10 >= 0.009
+                
+                # --- TELEGRAM ALERT LOGIC (Micro-Tracking) ---
+                if is_micro_increase or is_danger or is_consolidating:
+                    if is_danger:
+                        current_state = "HIGH RISK BREACH"
+                    elif is_consolidating:
+                        current_state = "WHALE CONSOLIDATION"
+                    else:
+                        current_state = "MICRO ACCUMULATION (+0.01%)"
                     
-                    # Only send if the state escalated (so it doesn't spam every 5 seconds)
-                    if st.session_state.last_alert_state != current_state:
+                    # Alert if the major risk state escalated OR if we stepped up another +0.01%
+                    if st.session_state.last_alert_state != current_state or is_micro_increase:
                         if tg_token and tg_chat_id:
                             msg = f"🚨 <b>SENTINEL ALERT: {symbol}</b> 🚨\n\n"
-                            msg += f"⚠️ <b>Status:</b> {'HIGH RISK BREACH' if is_danger else 'WHALE CONSOLIDATION'}\n"
+                            msg += f"⚠️ <b>Status:</b> {current_state}\n"
                             msg += f"💰 <b>Market Cap:</b> ${market_cap:,.0f}\n"
-                            msg += f"🐋 <b>Top 1% Holder:</b> {top_1_pct:.2f}% ({delta_top1:+.2f}%)\n"
-                            msg += f"🎯 <b>Top 10% Holders:</b> {top_10_pct:.2f}% ({delta_top10:+.2f}%)\n\n"
-                            msg += "👉 <b>Action Required: PREPARE TO EXIT.</b>"
+                            msg += f"🐋 <b>Top 1% Holder:</b> {top_1_pct:.2f}% (Total Δ: {delta_top1:+.2f}%)\n"
+                            msg += f"🎯 <b>Top 10% Holders:</b> {top_10_pct:.2f}% (Total Δ: {delta_top10:+.2f}%)\n\n"
+                            msg += "👉 <b>Action Required: Monitor Closely or Exit.</b>"
                             
                             send_telegram_alert(msg, tg_token, tg_chat_id)
                         
+                        # Lock in the new numbers so it waits for the next +0.01% step before pinging again
                         st.session_state.last_alert_state = current_state
+                        st.session_state.last_alerted_top1 = top_1_pct
+                        st.session_state.last_alerted_top10 = top_10_pct
                 else:
-                    st.session_state.last_alert_state = "SAFE"
+                    if not is_danger and not is_consolidating:
+                        st.session_state.last_alert_state = "SAFE"
+                
+                # If whales sell and percentages drop, lower the tracking baseline so we catch them buying back in
+                if step_top1 < 0 or step_top10 < 0:
+                    st.session_state.last_alerted_top1 = top_1_pct
+                    st.session_state.last_alerted_top10 = top_10_pct
                 
                 # --- DASHBOARD UI ---
                 with dashboard.container():
@@ -293,6 +318,8 @@ elif app_mode == "🚫 Anti-Rug Checker":
                         st.markdown("> **Instruction:** Top holder percentages are increasing since you started tracking. Sell to avoid the incoming dump.")
                     elif is_danger:
                         st.warning("⚠️ CAUTION: High Risk Thresholds Breached. Prepare to exit.")
+                    elif is_micro_increase:
+                        st.info("🔍 CAUTION: Micro accumulation detected. Watch for sudden consolidation.")
                     else:
                         st.success("✅ SAFE ZONES: Holding steady. No signs of wallet consolidation.")
                         
