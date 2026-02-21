@@ -33,6 +33,19 @@ def get_rugcheck_data(contract_address):
     except:
         return None
 
+def send_telegram_alert(message, bot_token, chat_id):
+    """Sends a Telegram message."""
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        pass # Silently fail so it doesn't crash your Streamlit app
+
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.title("🛰️ Sentinel Hub")
 app_mode = st.sidebar.radio("Select Tool", [
@@ -41,8 +54,13 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🚫 Anti-Rug Checker",
     "🐋 Whale Hunter",
     "📊 Coin's State Analysis",
-    "🎯 Scalp Scanner (Live)"  # <--- Added Scalp Scanner here
+    "🎯 Scalp Scanner (Live)"  
 ])
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📱 Alert Settings")
+tg_token = st.sidebar.text_input("8534212195:AAGnzuJVxDaGljBOQNjpkWd7BLg_iLLAilM", type="password")
+tg_chat_id = st.sidebar.text_input("692637798", type="password")
 
 st.sidebar.markdown("---")
 st.sidebar.info("Developed for Live Solana Monitoring")
@@ -211,6 +229,7 @@ elif app_mode == "🚫 Anti-Rug Checker":
             st.session_state.baseline_top1 = None
             st.session_state.baseline_top10 = None
             st.session_state.rug_current_token = token
+            st.session_state.last_alert_state = "SAFE"
 
         while True:
             try:
@@ -238,9 +257,30 @@ elif app_mode == "🚫 Anti-Rug Checker":
                 delta_top10 = top_10_pct - st.session_state.baseline_top10
                 
                 # Determine Exit Logic
-                is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 # Tolerance threshold for micro-fluctuations
+                is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 
                 is_danger = top_1_pct > 5 or top_10_pct > 30
                 
+                # --- TELEGRAM ALERT LOGIC (with spam prevention) ---
+                if is_consolidating or is_danger:
+                    current_state = "DANGER" if is_danger else "CONSOLIDATING"
+                    
+                    # Only send if the state escalated (so it doesn't spam every 5 seconds)
+                    if st.session_state.last_alert_state != current_state:
+                        if tg_token and tg_chat_id:
+                            msg = f"🚨 *SENTINEL ALERT: {symbol}* 🚨\n\n"
+                            msg += f"⚠️ *Status:* {'HIGH RISK BREACH' if is_danger else 'WHALE CONSOLIDATION'}\n"
+                            msg += f"💰 *Market Cap:* ${market_cap:,.0f}\n"
+                            msg += f"🐋 *Top 1% Holder:* {top_1_pct:.2f}% ({delta_top1:+.2f}%)\n"
+                            msg += f"🎯 *Top 10% Holders:* {top_10_pct:.2f}% ({delta_top10:+.2f}%)\n\n"
+                            msg += "👉 *Action Required: PREPARE TO EXIT.*"
+                            
+                            send_telegram_alert(msg, tg_token, tg_chat_id)
+                        
+                        st.session_state.last_alert_state = current_state
+                else:
+                    st.session_state.last_alert_state = "SAFE"
+                
+                # --- DASHBOARD UI ---
                 with dashboard.container():
                     st.markdown(f"### Security Scan: ${symbol} | MC: ${market_cap:,.0f}")
                     
