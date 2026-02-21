@@ -34,17 +34,19 @@ def get_rugcheck_data(contract_address):
         return None
 
 def send_telegram_alert(message, bot_token, chat_id):
-    """Sends a Telegram message."""
+    """Sends a Telegram message and displays errors if it fails."""
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "HTML"
     }
     try:
-        requests.post(url, json=payload, timeout=5)
+        response = requests.post(url, json=payload, timeout=5)
+        if response.status_code != 200:
+            st.error(f"Telegram API Error: {response.text}")
     except Exception as e:
-        pass # Silently fail so it doesn't crash your Streamlit app
+        st.error(f"Failed to connect to Telegram: {e}")
 
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.title("🛰️ Sentinel Hub")
@@ -59,10 +61,11 @@ app_mode = st.sidebar.radio("Select Tool", [
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
+
 # Hardcoded Telegram credentials so you don't need the input boxes
 tg_token = "8534212195:AAGnzuJVxDaGljBOQNjpkWd7BLg_iLLAiIM"
 tg_chat_id = "692637798"
-st.sidebar.markdown("---")
+
 st.sidebar.info("Developed for Live Solana Monitoring")
 
 # ==========================================
@@ -260,19 +263,19 @@ elif app_mode == "🚫 Anti-Rug Checker":
                 is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 
                 is_danger = top_1_pct > 5 or top_10_pct > 30
                 
-                # --- TELEGRAM ALERT LOGIC (with spam prevention) ---
+                # --- TELEGRAM ALERT LOGIC (with HTML formatting) ---
                 if is_consolidating or is_danger:
                     current_state = "DANGER" if is_danger else "CONSOLIDATING"
                     
                     # Only send if the state escalated (so it doesn't spam every 5 seconds)
                     if st.session_state.last_alert_state != current_state:
                         if tg_token and tg_chat_id:
-                            msg = f"🚨 *SENTINEL ALERT: {symbol}* 🚨\n\n"
-                            msg += f"⚠️ *Status:* {'HIGH RISK BREACH' if is_danger else 'WHALE CONSOLIDATION'}\n"
-                            msg += f"💰 *Market Cap:* ${market_cap:,.0f}\n"
-                            msg += f"🐋 *Top 1% Holder:* {top_1_pct:.2f}% ({delta_top1:+.2f}%)\n"
-                            msg += f"🎯 *Top 10% Holders:* {top_10_pct:.2f}% ({delta_top10:+.2f}%)\n\n"
-                            msg += "👉 *Action Required: PREPARE TO EXIT.*"
+                            msg = f"🚨 <b>SENTINEL ALERT: {symbol}</b> 🚨\n\n"
+                            msg += f"⚠️ <b>Status:</b> {'HIGH RISK BREACH' if is_danger else 'WHALE CONSOLIDATION'}\n"
+                            msg += f"💰 <b>Market Cap:</b> ${market_cap:,.0f}\n"
+                            msg += f"🐋 <b>Top 1% Holder:</b> {top_1_pct:.2f}% ({delta_top1:+.2f}%)\n"
+                            msg += f"🎯 <b>Top 10% Holders:</b> {top_10_pct:.2f}% ({delta_top10:+.2f}%)\n\n"
+                            msg += "👉 <b>Action Required: PREPARE TO EXIT.</b>"
                             
                             send_telegram_alert(msg, tg_token, tg_chat_id)
                         
