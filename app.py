@@ -56,7 +56,8 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🚫 Anti-Rug Checker",
     "🐋 Whale Hunter",
     "📊 Coin's State Analysis",
-    "🎯 Scalp Scanner (Live)"  
+    "🎯 Scalp Scanner (Live)",
+    "💧 Liquidity Pressure Engine"
 ])
 
 st.sidebar.markdown("---")
