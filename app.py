@@ -613,3 +613,132 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
                 dashboard.error(f"Error fetching data: {e}")
             
             time.sleep(refresh_rate)
+
+# ==========================================
+# TOOL 7: LIQUIDITY PRESSURE ENGINE
+# ==========================================
+elif app_mode == "💧 Liquidity Pressure Engine":
+    st.title("💧 Tool 7: Liquidity & Pressure Engine")
+    st.markdown("Live monitoring of net volume, transaction battles, and Liquidity Resistance.")
+    
+    # Input Layout
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t7_token")
+    with c2:
+        # User selects the 'x' time period for the volume/tx data
+        tf = st.selectbox("Timeframe (x)", ["m5", "h1", "h6", "h24"], key="t7_tf")
+    with c3:
+        # Live refresh slider
+        refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="t7_refresh")
+        
+    is_tracking = st.toggle("⚙️ Start Engine", key="t7_active")
+    
+    if is_tracking and token:
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                    
+                # 1. Liquidity Locked Status
+                lp_status = "Unverified ⚠️"
+                if rug:
+                    lp_pct = 0
+                    for m in rug.get('markets', []):
+                        if m.get('lp', {}).get('lpLocked', 0) > 0:
+                            lp_pct = m['lp']['lpLocked']
+                    if lp_pct > 0:
+                        lp_status = f"Yes ({lp_pct:.1f}% Locked) 🔒"
+                    else:
+                        lp_status = "No (0% Locked) 🚨"
+                        
+                # 2. Extract Base Metrics
+                liquidity = float(dex.get('liquidity', {}).get('usd', 0))
+                total_vol = float(dex.get('volume', {}).get(tf, 0))
+                txns = dex.get('txns', {}).get(tf, {})
+                buys = int(txns.get('buys', 0))
+                sells = int(txns.get('sells', 0))
+                total_txns = buys + sells
+                
+                # 3. Calculate Transactions & Volumes
+                net_txs = buys - sells
+                
+                # Approximating Buy/Sell volume based on TX ratio (DEX APIs group volume total)
+                buy_ratio = (buys / total_txns) if total_txns > 0 else 0.5
+                buy_vol = total_vol * buy_ratio
+                sell_vol = total_vol * (1 - buy_ratio)
+                net_vol = buy_vol - sell_vol
+                
+                # 4. Liquidity Resistance Formula: [Net Buy Vol / Liquidity] * 100
+                if liquidity > 0:
+                    liq_resistance = (net_vol / liquidity) * 100
+                else:
+                    liq_resistance = 0
+                    
+                # 5. Determine the Winner
+                if net_vol > 0:
+                    winner = "🟢 BULLS WINNING (Net Buy Pressure)"
+                    res_color = "normal"
+                elif net_vol < 0:
+                    winner = "🔴 BEARS WINNING (Net Sell Pressure)"
+                    res_color = "inverse"
+                else:
+                    winner = "⚪ NEUTRAL (Stagnant)"
+                    res_color = "off"
+                    
+                # --- DASHBOARD UI ---
+                with dashboard.container():
+                    st.subheader(f"Token: {dex.get('baseToken', {}).get('symbol', 'Unknown')}")
+                    st.markdown(f"**Liquidity Locked:** {lp_status}")
+                    st.markdown(f"**Market Dominance:** {winner}")
+                    
+                    st.divider()
+                    
+                    # Volume Metrics
+                    st.markdown(f"### 📊 Volume Battle ({tf})")
+                    v1, v2, v3 = st.columns(3)
+                    v1.metric("Buy Volume", f"${buy_vol:,.2f}")
+                    v2.metric("Sell Volume", f"${sell_vol:,.2f}")
+                    v3.metric("NET Volume", f"${net_vol:,.2f}", f"{'+' if net_vol > 0 else ''}{net_vol:,.2f} USD")
+                    
+                    # TX Metrics
+                    st.markdown(f"### ⚔️ Transaction Battle ({tf})")
+                    t1, t2, t3 = st.columns(3)
+                    t1.metric("Buy Txs", f"{buys}")
+                    t2.metric("Sell Txs", f"{sells}")
+                    t3.metric("NET Txs", f"{net_txs}", f"{'+' if net_txs > 0 else ''}{net_txs} Txs")
+                    
+                    st.divider()
+                    
+                    # Liquidity Resistance
+                    st.markdown("### 🧱 Liquidity Resistance (Force vs Mass)")
+                    r1, r2 = st.columns([1, 2])
+                    r1.metric("Total Liquidity", f"${liquidity:,.2f}")
+                    
+                    if liq_resistance > 0:
+                        res_state = "🔥 Upward pressure overcoming LP mass."
+                    elif liq_resistance < 0:
+                        res_state = "🩸 Downward pressure dragging LP mass."
+                    else:
+                        res_state = "⚖️ No pressure applied."
+                        
+                    r2.metric(
+                        f"Liquidity Resistance ({tf})", 
+                        f"{liq_resistance:+.2f}%", 
+                        res_state, 
+                        delta_color=res_color
+                    )
+                    
+                    st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s) | Volume distributed via TX ratio.")
+                    
+            except Exception as e:
+                dashboard.error(f"Error parsing engine data: {e}")
+                
+            time.sleep(refresh_rate)
