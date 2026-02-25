@@ -18,7 +18,19 @@ def get_dex_data(contract_address):
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            if data.get('pairs'): return data['pairs'][0]
+            pairs = data.get('pairs', [])
+            if not pairs: return None
+            
+            # Filter for Solana pairs only to avoid cross-chain confusion
+            sol_pairs = [p for p in pairs if p.get('chainId') == 'solana']
+            
+            # If no solana pairs, fallback to whatever is first
+            if not sol_pairs: return pairs[0]
+            
+            # Find the main pair (the one with the highest USD liquidity)
+            main_pair = max(sol_pairs, key=lambda x: float(x.get('liquidity', {}).get('usd', 0)))
+            return main_pair
+            
         return None
     except:
         return None
