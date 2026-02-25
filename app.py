@@ -64,7 +64,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
 
 # Hardcoded Telegram credentials
-tg_token = "8534212195:AAH-PYRMFR1h7kt2vGAbx6hH26QWCP0VLDQ" # Using your valid token from the screenshot
+tg_token = "8534212195:AAH-PYRMFR1h7kt2vGAbx6hH26QWCP0VLDQ" 
 tg_chat_id = "1692637798"
 
 st.sidebar.info("Developed for Live Solana Monitoring")
@@ -167,7 +167,7 @@ if app_mode == "📡 Live Monitor (V13)":
                 dashboard.error(f"Error parsing data: {e}")
 
             time.sleep(refresh_rate)
-            
+
 # ==========================================
 # TOOL 2: SAFE ENTRY CHECK (V14)
 # ==========================================
@@ -228,7 +228,6 @@ elif app_mode == "🚫 Anti-Rug Checker":
     if is_scanning and token:
         dashboard = st.empty()
         
-        # Initialize session state to track the baseline percentages and step alerts
         if 'baseline_top1' not in st.session_state or st.session_state.get('rug_current_token') != token:
             st.session_state.baseline_top1 = None
             st.session_state.baseline_top10 = None
@@ -253,29 +252,23 @@ elif app_mode == "🚫 Anti-Rug Checker":
                 market_cap = dex.get('fdv', 0)
                 symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
                 
-                # Set baseline on first successful scan
                 if st.session_state.baseline_top1 is None:
                     st.session_state.baseline_top1 = top_1_pct
                     st.session_state.baseline_top10 = top_10_pct
                     st.session_state.last_alerted_top1 = top_1_pct
                     st.session_state.last_alerted_top10 = top_10_pct
                 
-                # Calculate total movement since scan started
                 delta_top1 = top_1_pct - st.session_state.baseline_top1
                 delta_top10 = top_10_pct - st.session_state.baseline_top10
                 
-                # Calculate micro-movement since the LAST alert
                 step_top1 = top_1_pct - st.session_state.last_alerted_top1
                 step_top10 = top_10_pct - st.session_state.last_alerted_top10
                 
-                # Determine Risk Thresholds
                 is_danger = top_1_pct > 5 or top_10_pct > 30
                 is_consolidating = delta_top1 > 0.5 or delta_top10 > 1.0 
                 
-                # Trigger for +0.01% micro-accumulation (using 0.009 to catch floating point math rounding)
                 is_micro_increase = step_top1 >= 0.009 or step_top10 >= 0.009
                 
-                # --- TELEGRAM ALERT LOGIC (Micro-Tracking) ---
                 if is_micro_increase or is_danger or is_consolidating:
                     if is_danger:
                         current_state = "HIGH RISK BREACH"
@@ -284,7 +277,6 @@ elif app_mode == "🚫 Anti-Rug Checker":
                     else:
                         current_state = "MICRO ACCUMULATION (+0.01%)"
                     
-                    # Alert if the major risk state escalated OR if we stepped up another +0.01%
                     if st.session_state.last_alert_state != current_state or is_micro_increase:
                         if tg_token and tg_chat_id:
                             msg = f"🚨 <b>SENTINEL ALERT: {symbol}</b> 🚨\n\n"
@@ -296,7 +288,6 @@ elif app_mode == "🚫 Anti-Rug Checker":
                             
                             send_telegram_alert(msg, tg_token, tg_chat_id)
                         
-                        # Lock in the new numbers so it waits for the next +0.01% step before pinging again
                         st.session_state.last_alert_state = current_state
                         st.session_state.last_alerted_top1 = top_1_pct
                         st.session_state.last_alerted_top10 = top_10_pct
@@ -304,16 +295,13 @@ elif app_mode == "🚫 Anti-Rug Checker":
                     if not is_danger and not is_consolidating:
                         st.session_state.last_alert_state = "SAFE"
                 
-                # If whales sell and percentages drop, lower the tracking baseline so we catch them buying back in
                 if step_top1 < 0 or step_top10 < 0:
                     st.session_state.last_alerted_top1 = top_1_pct
                     st.session_state.last_alerted_top10 = top_10_pct
                 
-                # --- DASHBOARD UI ---
                 with dashboard.container():
                     st.markdown(f"### Security Scan: ${symbol} | MC: ${market_cap:,.0f}")
                     
-                    # --- DYNAMIC EXIT INSTRUCTIONS ---
                     if is_consolidating:
                         st.error("🚨 EXIT NOW: WHALES ARE CONSOLIDATING! 🚨")
                         st.markdown("> **Instruction:** Top holder percentages are increasing since you started tracking. Sell to avoid the incoming dump.")
@@ -326,7 +314,6 @@ elif app_mode == "🚫 Anti-Rug Checker":
                         
                     st.divider()
                     
-                    # --- METRICS ---
                     col1, col2 = st.columns(2)
                     
                     with col1:
@@ -501,14 +488,12 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
     st.title("🎯 Scalp Scanner V5 (Live)")
     st.markdown("Strict entry logic engine optimizing for `+30% to +50%` scalps.")
     
-    # Input Layout
     c1, c2 = st.columns([3, 1])
     with c1:
         token = st.text_input("Enter Token Address", key="scalp_token")
     with c2:
         refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="scalp_refresh")
     
-    # Start Toggle
     is_scanning = st.toggle("🎯 Start Scalp Scanner", key="scalp_active")
     
     if is_scanning and token:
@@ -536,7 +521,6 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
                 total_txns_5m = m5_buys + m5_sells
                 buy_sell_ratio = round(m5_buys / m5_sells, 2) if m5_sells > 0 else float(m5_buys)
                 
-                # --- SCALPER'S PROBABILITY ENGINE ---
                 win_prob = 0
                 
                 if m5_volume > 50000: win_prob += 30
@@ -555,7 +539,6 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
                 
                 win_prob = max(0, min(100, win_prob))
 
-                # --- PNL PROJECTION LOGIC ---
                 if win_prob >= 80:
                     pnl_est = "+30% to +50% (High Conviction Scalp)"
                     state = "🎯 PRIME SCALP ENTRY: Massive heat, perfect momentum."
@@ -581,17 +564,14 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
                     state = "🩸 AVOID / CUT LOSSES: Momentum is dead."
                     status_color = "error"
 
-                # Update Dashboard
                 with dashboard.container():
                     st.subheader(f"TOKEN: {symbol} | DEX: {dex}")
                     
-                    # Alert Banner
                     if status_color == "success": st.success(state)
                     elif status_color == "info": st.info(state)
                     elif status_color == "warning": st.warning(state)
                     else: st.error(state)
                         
-                    # Target & Assurance Metrics
                     col1, col2 = st.columns(2)
                     col1.metric("⚡ WIN ASSURANCE", f"{win_prob}%")
                     col2.metric("💰 PROJECTED PnL", pnl_est)
@@ -599,7 +579,6 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
                     st.progress(win_prob / 100, text="Engine Confidence Score")
                     st.divider()
                     
-                    # Data Breakdown
                     st.markdown("### 5-Minute Micro-Metrics")
                     m1, m2, m3, m4 = st.columns(4)
                     m1.metric("Volume Velocity", f"${m5_volume:,.2f}")
@@ -615,22 +594,19 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
             
             time.sleep(refresh_rate)
 
-me.sleep(refresh_rate)# ==========================================
+# ==========================================
 # TOOL 7: LIQUIDITY PRESSURE ENGINE
 # ==========================================
 elif app_mode == "💧 Liquidity Pressure Engine":
     st.title("💧 Tool 7: Liquidity & Pressure Engine")
     st.markdown("Live monitoring of net volume, transaction battles, and Liquidity Resistance.")
     
-    # Input Layout
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
         token = st.text_input("Enter Token Address", key="t7_token")
     with c2:
-        # User selects the 'x' time period for the volume/tx data
         tf = st.selectbox("Timeframe (x)", ["m5", "h1", "h6", "h24"], key="t7_tf")
     with c3:
-        # Live refresh slider
         refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="t7_refresh")
         
     is_tracking = st.toggle("⚙️ Start Engine", key="t7_active")
@@ -648,7 +624,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     time.sleep(refresh_rate)
                     continue
                     
-                # 1. Liquidity Locked Status
                 lp_status = "Unverified ⚠️"
                 if rug:
                     lp_pct = 0
@@ -660,7 +635,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     else:
                         lp_status = "No (0% Locked) 🚨"
                         
-                # 2. Extract Base Metrics
                 liquidity = float(dex.get('liquidity', {}).get('usd', 0))
                 market_cap = float(dex.get('fdv', 0))
                 total_vol = float(dex.get('volume', {}).get(tf, 0))
@@ -669,14 +643,12 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 sells = int(txns.get('sells', 0))
                 total_txns = buys + sells
                 
-                # 3. Calculate Transactions & Volumes
                 net_txs = buys - sells
                 buy_ratio = (buys / total_txns) if total_txns > 0 else 0.5
                 buy_vol = total_vol * buy_ratio
                 sell_vol = total_vol * (1 - buy_ratio)
                 net_vol = buy_vol - sell_vol
                 
-                # 4. Structural Health: Liquidity-to-Market Cap Ratio
                 if market_cap > 0:
                     liq_ratio = (liquidity / market_cap) * 100
                 else:
@@ -684,21 +656,19 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     
                 if liq_ratio >= 10.0:
                     health_status = "✅ SAFE (Solid Foundation)"
-                    health_color = "normal"  # Renders Green
+                    health_color = "normal"  
                 elif liq_ratio >= 5.0:
                     health_status = "⚠️ MODERATE (Monitor Closely)"
-                    health_color = "off"     # Renders Gray
+                    health_color = "off"     
                 else:
                     health_status = "🚨 DANGER (Paper-Thin LP / High Rug Risk)"
-                    health_color = "inverse" # Renders Red
+                    health_color = "inverse" 
 
-                # 5. Liquidity Resistance Formula: [Net Buy Vol / Liquidity] * 100
                 if liquidity > 0:
                     liq_resistance = (net_vol / liquidity) * 100
                 else:
                     liq_resistance = 0
                     
-                # 6. Noise Filtering & Force Thresholds
                 if liq_resistance >= 5.0:
                     res_state = "🌋 OVERWHELMING upward force!"
                     res_color = "normal"
@@ -721,7 +691,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     res_state = "🕳️ OVERWHELMING downward force!"
                     res_color = "inverse"
 
-                # Determine the Winner (Broad Phase)
                 if net_vol > 0 and liq_resistance >= 0.5:
                     winner = "🟢 BULLS WINNING (Net Buy Pressure)"
                 elif net_vol < 0 and liq_resistance <= -0.5:
@@ -729,7 +698,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 else:
                     winner = "⚪ NEUTRAL (Stagnant / Choppy)"
                     
-                # --- DASHBOARD UI ---
                 with dashboard.container():
                     st.subheader(f"Token: {dex.get('baseToken', {}).get('symbol', 'Unknown')}")
                     st.markdown(f"**Liquidity Locked:** {lp_status}")
@@ -737,14 +705,12 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     
                     st.divider()
                     
-                    # Volume Metrics
                     st.markdown(f"### 📊 Volume Battle ({tf})")
                     v1, v2, v3 = st.columns(3)
                     v1.metric("Buy Volume", f"${buy_vol:,.2f}")
                     v2.metric("Sell Volume", f"${sell_vol:,.2f}")
                     v3.metric("NET Volume", f"${net_vol:,.2f}", f"{'+' if net_vol > 0 else ''}{net_vol:,.2f} USD")
                     
-                    # TX Metrics
                     st.markdown(f"### ⚔️ Transaction Battle ({tf})")
                     t1, t2, t3 = st.columns(3)
                     t1.metric("Buy Txs", f"{buys}")
@@ -753,7 +719,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     
                     st.divider()
                     
-                    # Liquidity Resistance & Structural Health
                     st.markdown("### 🧱 Liquidity Foundation & Resistance")
                     st.markdown(f"**Structural Health:** {health_status}")
                     
