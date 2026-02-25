@@ -615,7 +615,7 @@ elif app_mode == "🎯 Scalp Scanner (Live)":
             
             time.sleep(refresh_rate)
 
-# ==========================================
+me.sleep(refresh_rate)# ==========================================
 # TOOL 7: LIQUIDITY PRESSURE ENGINE
 # ==========================================
 elif app_mode == "💧 Liquidity Pressure Engine":
@@ -662,6 +662,7 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                         
                 # 2. Extract Base Metrics
                 liquidity = float(dex.get('liquidity', {}).get('usd', 0))
+                market_cap = float(dex.get('fdv', 0))
                 total_vol = float(dex.get('volume', {}).get(tf, 0))
                 txns = dex.get('txns', {}).get(tf, {})
                 buys = int(txns.get('buys', 0))
@@ -670,29 +671,63 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 
                 # 3. Calculate Transactions & Volumes
                 net_txs = buys - sells
-                
-                # Approximating Buy/Sell volume based on TX ratio (DEX APIs group volume total)
                 buy_ratio = (buys / total_txns) if total_txns > 0 else 0.5
                 buy_vol = total_vol * buy_ratio
                 sell_vol = total_vol * (1 - buy_ratio)
                 net_vol = buy_vol - sell_vol
                 
-                # 4. Liquidity Resistance Formula: [Net Buy Vol / Liquidity] * 100
+                # 4. Structural Health: Liquidity-to-Market Cap Ratio
+                if market_cap > 0:
+                    liq_ratio = (liquidity / market_cap) * 100
+                else:
+                    liq_ratio = 0
+                    
+                if liq_ratio >= 10.0:
+                    health_status = "✅ SAFE (Solid Foundation)"
+                    health_color = "normal"  # Renders Green
+                elif liq_ratio >= 5.0:
+                    health_status = "⚠️ MODERATE (Monitor Closely)"
+                    health_color = "off"     # Renders Gray
+                else:
+                    health_status = "🚨 DANGER (Paper-Thin LP / High Rug Risk)"
+                    health_color = "inverse" # Renders Red
+
+                # 5. Liquidity Resistance Formula: [Net Buy Vol / Liquidity] * 100
                 if liquidity > 0:
                     liq_resistance = (net_vol / liquidity) * 100
                 else:
                     liq_resistance = 0
                     
-                # 5. Determine the Winner
-                if net_vol > 0:
-                    winner = "🟢 BULLS WINNING (Net Buy Pressure)"
+                # 6. Noise Filtering & Force Thresholds
+                if liq_resistance >= 5.0:
+                    res_state = "🌋 OVERWHELMING upward force!"
                     res_color = "normal"
-                elif net_vol < 0:
-                    winner = "🔴 BEARS WINNING (Net Sell Pressure)"
+                elif liq_resistance >= 2.0:
+                    res_state = "🔥 Strong upward pressure."
+                    res_color = "normal"
+                elif liq_resistance >= 0.5:
+                    res_state = "📈 Slight net buying."
+                    res_color = "normal"
+                elif liq_resistance > -0.5:
+                    res_state = "⚖️ Market Noise / Chop (Insignificant)"
+                    res_color = "off"
+                elif liq_resistance > -2.0:
+                    res_state = "📉 Slight net selling."
+                    res_color = "inverse"
+                elif liq_resistance > -5.0:
+                    res_state = "🩸 Strong downward pressure."
                     res_color = "inverse"
                 else:
-                    winner = "⚪ NEUTRAL (Stagnant)"
-                    res_color = "off"
+                    res_state = "🕳️ OVERWHELMING downward force!"
+                    res_color = "inverse"
+
+                # Determine the Winner (Broad Phase)
+                if net_vol > 0 and liq_resistance >= 0.5:
+                    winner = "🟢 BULLS WINNING (Net Buy Pressure)"
+                elif net_vol < 0 and liq_resistance <= -0.5:
+                    winner = "🔴 BEARS WINNING (Net Sell Pressure)"
+                else:
+                    winner = "⚪ NEUTRAL (Stagnant / Choppy)"
                     
                 # --- DASHBOARD UI ---
                 with dashboard.container():
@@ -718,20 +753,20 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     
                     st.divider()
                     
-                    # Liquidity Resistance
-                    st.markdown("### 🧱 Liquidity Resistance (Force vs Mass)")
-                    r1, r2 = st.columns([1, 2])
-                    r1.metric("Total Liquidity", f"${liquidity:,.2f}")
+                    # Liquidity Resistance & Structural Health
+                    st.markdown("### 🧱 Liquidity Foundation & Resistance")
+                    st.markdown(f"**Structural Health:** {health_status}")
                     
-                    if liq_resistance > 0:
-                        res_state = "🔥 Upward pressure overcoming LP mass."
-                    elif liq_resistance < 0:
-                        res_state = "🩸 Downward pressure dragging LP mass."
-                    else:
-                        res_state = "⚖️ No pressure applied."
-                        
+                    r1, r2, r3 = st.columns(3)
+                    r1.metric("Market Cap (FDV)", f"${market_cap:,.2f}")
                     r2.metric(
-                        f"Liquidity Resistance ({tf})", 
+                        "Total Liquidity", 
+                        f"${liquidity:,.2f}", 
+                        f"{liq_ratio:.2f}% Liq/MC Ratio", 
+                        delta_color=health_color
+                    )
+                    r3.metric(
+                        f"Net Force ({tf})", 
                         f"{liq_resistance:+.2f}%", 
                         res_state, 
                         delta_color=res_color
