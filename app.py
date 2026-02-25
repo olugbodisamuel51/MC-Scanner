@@ -21,15 +21,31 @@ def get_dex_data(contract_address):
             pairs = data.get('pairs', [])
             if not pairs: return None
             
-            # Filter for Solana pairs only to avoid cross-chain confusion
+            # 1. Filter for Solana pairs only
             sol_pairs = [p for p in pairs if p.get('chainId') == 'solana']
+            if not sol_pairs: return pairs[0] 
             
-            # If no solana pairs, fallback to whatever is first
-            if not sol_pairs: return pairs[0]
-            
-            # Find the main pair (the one with the highest USD liquidity)
+            # 2. Grab the main pair for baseline data (Price, Symbol, FDV)
             main_pair = max(sol_pairs, key=lambda x: float(x.get('liquidity', {}).get('usd', 0)))
-            return main_pair
+            
+            # 3. Create a Synthetic Aggregated Pair
+            aggregated_pair = dict(main_pair)
+            
+            # 4. Sum up all Liquidity across Raydium, Meteora, Orca, etc.
+            total_liq = sum(float(p.get('liquidity', {}).get('usd', 0)) for p in sol_pairs)
+            aggregated_pair['liquidity'] = {'usd': total_liq}
+            
+            # 5. Sum up Volume and Transactions for all timeframes
+            aggregated_pair['volume'] = {}
+            aggregated_pair['txns'] = {}
+            
+            for tf in ['m5', 'h1', 'h6', 'h24']:
+                aggregated_pair['volume'][tf] = sum(float(p.get('volume', {}).get(tf, 0)) for p in sol_pairs)
+                buys = sum(int(p.get('txns', {}).get(tf, {}).get('buys', 0)) for p in sol_pairs)
+                sells = sum(int(p.get('txns', {}).get(tf, {}).get('sells', 0)) for p in sol_pairs)
+                aggregated_pair['txns'][tf] = {'buys': buys, 'sells': sells}
+                
+            return aggregated_pair
             
         return None
     except:
