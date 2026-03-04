@@ -638,9 +638,20 @@ elif app_mode == "💧 Liquidity Pressure Engine":
         refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="t7_refresh")
         
     is_tracking = st.toggle("⚙️ Start Engine", key="t7_active")
+
+    # Reset tracking baseline if the toggle is turned off
+    if not is_tracking:
+        st.session_state.pop('t7_tracking_key', None)
     
     if is_tracking and token:
         dashboard = st.empty()
+
+        # Initialize session state to track the baseline when you start searching
+        current_t7_key = f"{token}_{tf}"
+        if st.session_state.get('t7_tracking_key') != current_t7_key:
+            st.session_state.t7_tracking_key = current_t7_key
+            st.session_state.t7_start_net_vol = None
+            st.session_state.t7_start_time = time.time()
         
         while True:
             try:
@@ -676,6 +687,14 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 buy_vol = total_vol * buy_ratio
                 sell_vol = total_vol * (1 - buy_ratio)
                 net_vol = buy_vol - sell_vol
+
+                # Capture baseline on the very first successful tick
+                if st.session_state.t7_start_net_vol is None:
+                    st.session_state.t7_start_net_vol = net_vol
+
+                # Calculate Aggregate metrics
+                agg_net_vol = net_vol - st.session_state.t7_start_net_vol
+                agg_liq_resistance = (agg_net_vol / liquidity) * 100 if liquidity > 0 else 0
                 
                 if market_cap > 0:
                     liq_ratio = (liquidity / market_cap) * 100
@@ -719,6 +738,17 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     res_state = "🕳️ OVERWHELMING downward force!"
                     res_color = "inverse"
 
+                # Aggregate State Logic
+                if agg_liq_resistance >= 0.5:
+                    agg_res_state = "📈 Net Accumulation"
+                    agg_res_color = "normal"
+                elif agg_liq_resistance <= -0.5:
+                    agg_res_state = "📉 Net Distribution"
+                    agg_res_color = "inverse"
+                else:
+                    agg_res_state = "⚖️ Neutral Session"
+                    agg_res_color = "off"
+
                 if net_vol > 0 and liq_resistance >= 0.5:
                     winner = "🟢 BULLS WINNING (Net Buy Pressure)"
                 elif net_vol < 0 and liq_resistance <= -0.5:
@@ -750,7 +780,8 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     st.markdown("### 🧱 Liquidity Foundation & Resistance")
                     st.markdown(f"**Structural Health:** {health_status}")
                     
-                    r1, r2, r3 = st.columns(3)
+                    # Expanded to 4 columns to fit the new Aggregate metric smoothly
+                    r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Market Cap (FDV)", f"${market_cap:,.2f}")
                     r2.metric(
                         "Total Liquidity", 
@@ -763,6 +794,16 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                         f"{liq_resistance:+.2f}%", 
                         res_state, 
                         delta_color=res_color
+                    )
+                    
+                    session_duration = int(time.time() - st.session_state.t7_start_time)
+                    mins, secs = divmod(session_duration, 60)
+                    
+                    r4.metric(
+                        f"Session Force (Agg)", 
+                        f"{agg_liq_resistance:+.2f}%", 
+                        f"{agg_res_state} ({mins}m {secs}s)", 
+                        delta_color=agg_res_color
                     )
                     
                     st.caption(f"Last Scan: {datetime.now().strftime('%H:%M:%S')} (Refreshing every {refresh_rate}s) | Volume distributed via TX ratio.")
