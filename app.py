@@ -881,6 +881,8 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
     # Handle session state for the analyzer
     if 'adv_analyzer' not in st.session_state:
         st.session_state.adv_analyzer = AdvancedArchetypeClassifier()
+        
+    if 't8_current_token' not in st.session_state:
         st.session_state.t8_current_token = None
 
     if is_scanning and token:
