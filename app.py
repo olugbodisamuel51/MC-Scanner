@@ -844,10 +844,10 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
             prev = self.history.iloc[-2]
             current = self.history.iloc[-1]
             
-            mc_overall_pct = ((current['mc'] - baseline['mc']) / baseline['mc']) * 100
+            mc_overall_pct = ((current['mc'] - baseline['mc']) / baseline['mc']) * 100 if baseline['mc'] > 0 else 0
             top1_overall_delta = current['top1'] - baseline['top1']
             
-            mc_recent_pct = ((current['mc'] - prev['mc']) / prev['mc']) * 100
+            mc_recent_pct = ((current['mc'] - prev['mc']) / prev['mc']) * 100 if prev['mc'] > 0 else 0
             top1_recent_delta = current['top1'] - prev['top1']
             
             # --- ADVANCED PSYCHOLOGICAL CLASSIFICATION LOGIC ---
@@ -868,38 +868,83 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
 
     # --- STREAMLIT DASHBOARD UI ---
     st.title("Tool 8 v2.0: Deep Psychology Scanner 🧠")
+    st.markdown("Automated live scanning of market cap and whale concentration to detect cabal manipulation.")
 
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t8_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 60, 10, key="t8_refresh")
+        
+    is_scanning = st.toggle("🧠 Start Deep Scan", key="t8_active")
+    
+    # Handle session state for the analyzer
     if 'adv_analyzer' not in st.session_state:
         st.session_state.adv_analyzer = AdvancedArchetypeClassifier()
+        st.session_state.t8_current_token = None
 
-    # Moved inputs to the MAIN page instead of the sidebar
-    st.markdown("### 📥 Live Data Injection")
-    c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        live_mc = st.number_input("Market Cap ($)", value=1500000, step=10000)
-    with c2:
-        live_top1 = st.number_input("Top 1% Holdings (%)", value=4.00, step=0.01)
-    with c3:
-        live_top10 = st.number_input("Top 10% Holdings (%)", value=20.00, step=0.10)
+    if is_scanning and token:
+        # Reset tracker if we switch to a new token
+        if st.session_state.t8_current_token != token:
+            st.session_state.adv_analyzer = AdvancedArchetypeClassifier()
+            st.session_state.t8_current_token = token
+            
+        dashboard = st.empty()
         
-    if st.button("🚀 Inject Live Data"):
-        current_time = pd.Timestamp.now()
-        st.session_state.adv_analyzer.add_data_point(current_time, live_mc, live_top1, live_top10)
-        st.rerun() # Forces an instant screen refresh
-
-    st.divider()
-
-    # Display Dashboard
-    if not st.session_state.adv_analyzer.history.empty:
-        st.subheader("Internal Data Matrix")
-        st.dataframe(st.session_state.adv_analyzer.history.tail(5), use_container_width=True) 
-        
-        verdict_title, verdict_desc, color = st.session_state.adv_analyzer.analyze_token()
-        
-        st.markdown("### 🎯 Live Behavioral Verdict")
-        st.markdown(f"<h3 style='color: {color};'>{verdict_title}</h3>", unsafe_allow_html=True)
-        st.info(verdict_desc)
-    else:
-        # Show this message when there is no data yet
-        st.info("👋 Welcome to Tool 8! Enter the Market Cap and Whale Percentages above, then click 'Inject Live Data' to start mapping the psychology.")
+        while True:
+            try:
+                # 1. Fetch live blockchain data using your utility functions
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                
+                # 2. Extract specific metrics needed for Tool 8
+                market_cap = float(dex.get('fdv', 0))
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
+                
+                top_holders = rug.get('topHolders', [])
+                top_1_pct = top_holders[0].get('pct', 0) if top_holders else 0
+                top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                # 3. Inject data into the internal Engine
+                st.session_state.adv_analyzer.add_data_point(current_time, market_cap, top_1_pct, top_10_pct)
+                
+                # 4. Get the psychological verdict
+                verdict_title, verdict_desc, color = st.session_state.adv_analyzer.analyze_token()
+                
+                # Map colors to streamlit alert boxes
+                if color == "red": alert_color = "error"
+                elif color == "green": alert_color = "success"
+                elif color == "orange": alert_color = "warning"
+                else: alert_color = "info"
+                
+                # 5. Render the Dashboard
+                with dashboard.container():
+                    st.subheader(f"Token: {symbol}")
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Market Cap", f"${market_cap:,.0f}")
+                    m2.metric("Top 1% Whale", f"{top_1_pct:.2f}%")
+                    m3.metric("Top 10% Cabal", f"{top_10_pct:.2f}%")
+                    
+                    st.markdown("### 🎯 Live Behavioral Verdict")
+                    if alert_color == "error": st.error(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "success": st.success(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "warning": st.warning(f"### {verdict_title}\n{verdict_desc}")
+                    else: st.info(f"### {verdict_title}\n{verdict_desc}")
+                    
+                    st.divider()
+                    st.markdown("### Internal Tracking Matrix")
+                    st.dataframe(st.session_state.adv_analyzer.history.tail(5), use_container_width=True)
+                    st.caption(f"Last Scan: {current_time} (Refreshing every {refresh_rate}s)")
+                    
+            except Exception as e:
+                dashboard.error(f"Error fetching live data: {e}")
+                
+            time.sleep(refresh_rate)
