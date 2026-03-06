@@ -917,6 +917,16 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                 # 3. Inject data into the internal Engine
                 st.session_state.adv_analyzer.add_data_point(current_time, market_cap, top_1_pct, top_10_pct)
                 
+                # --- NEW: CALCULATE 3D TRACKING DELTAS ---
+                baseline_mc = st.session_state.adv_analyzer.history.iloc[0]['mc']
+                pnl_pct = ((market_cap - baseline_mc) / baseline_mc) * 100 if baseline_mc > 0 else 0
+                
+                baseline_top1 = st.session_state.adv_analyzer.history.iloc[0]['top1']
+                delta_top1 = top_1_pct - baseline_top1
+                
+                baseline_top10 = st.session_state.adv_analyzer.history.iloc[0]['top10']
+                delta_top10 = top_10_pct - baseline_top10
+                
                 # 4. Get the psychological verdict
                 verdict_title, verdict_desc, color = st.session_state.adv_analyzer.analyze_token()
                 
@@ -931,9 +941,11 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                     st.subheader(f"Token: {symbol}")
                     
                     m1, m2, m3 = st.columns(3)
-                    m1.metric("Market Cap", f"${market_cap:,.0f}")
-                    m2.metric("Top 1% Whale", f"{top_1_pct:.2f}%")
-                    m3.metric("Top 10% Cabal", f"{top_10_pct:.2f}%")
+                    # PnL displays normal (Green for +, Red for -)
+                    m1.metric("Market Cap", f"${market_cap:,.0f}", f"{pnl_pct:+.2f}% PnL (Session)")
+                    # Whale metrics display INVERSE (Red if they are buying +, Green if they are selling -)
+                    m2.metric("Top 1% Whale", f"{top_1_pct:.2f}%", f"{delta_top1:+.2f}%", delta_color="inverse")
+                    m3.metric("Top 10% Cabal", f"{top_10_pct:.2f}%", f"{delta_top10:+.2f}%", delta_color="inverse")
                     
                     st.markdown("### 🎯 Live Behavioral Verdict")
                     if alert_color == "error": st.error(f"### {verdict_title}\n{verdict_desc}")
@@ -944,6 +956,7 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                     st.divider()
                     st.markdown("### Internal Tracking Matrix")
                     st.dataframe(st.session_state.adv_analyzer.history.tail(5), use_container_width=True)
+                    st.caption(f"Session started tracking at Market Cap: ${baseline_mc:,.0f}")
                     st.caption(f"Last Scan: {current_time} (Refreshing every {refresh_rate}s)")
                     
             except Exception as e:
