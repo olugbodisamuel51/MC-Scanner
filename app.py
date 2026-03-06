@@ -780,7 +780,6 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                     st.markdown("### 🧱 Liquidity Foundation & Resistance")
                     st.markdown(f"**Structural Health:** {health_status}")
                     
-                    # Expanded to 4 columns to fit the new Aggregate metric smoothly
                     r1, r2, r3, r4 = st.columns(4)
                     r1.metric("Market Cap (FDV)", f"${market_cap:,.2f}")
                     r2.metric(
@@ -812,3 +811,84 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 dashboard.error(f"Error parsing engine data: {e}")
                 
             time.sleep(refresh_rate)
+
+# ==========================================
+# TOOL 8: DEEP PSYCHOLOGY SCANNER
+# ==========================================
+elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
+    
+    import pandas as pd
+    
+    # Define the class logic
+    class AdvancedArchetypeClassifier:
+        def __init__(self):
+            # Stores the live tracking history
+            self.history = pd.DataFrame(columns=["timestamp", "mc", "top1", "top10"])
+            
+        def add_data_point(self, timestamp, mc, top1, top10):
+            """Feeds live data into the tracker."""
+            new_row = pd.DataFrame({
+                "timestamp": [timestamp],
+                "mc": [mc],
+                "top1": [top1],
+                "top10": [top10]
+            })
+            self.history = pd.concat([self.history, new_row], ignore_index=True)
+            
+        def analyze_token(self):
+            """Analyzes time-series data to detect advanced market psychology."""
+            if len(self.history) < 3:
+                return "⏳ Gathering Data...", "Need at least 3 data points to establish a trend.", "gray"
+                
+            baseline = self.history.iloc[0]
+            prev = self.history.iloc[-2]
+            current = self.history.iloc[-1]
+            
+            mc_overall_pct = ((current['mc'] - baseline['mc']) / baseline['mc']) * 100
+            top1_overall_delta = current['top1'] - baseline['top1']
+            
+            mc_recent_pct = ((current['mc'] - prev['mc']) / prev['mc']) * 100
+            top1_recent_delta = current['top1'] - prev['top1']
+            
+            # --- ADVANCED PSYCHOLOGICAL CLASSIFICATION LOGIC ---
+            if mc_recent_pct <= -5.0 and top1_recent_delta >= 0.10:
+                return "🪤 The Shakeout", "Whales crashed the price to trigger panic, and are now buying your bags at a discount.", "red"
+            if abs(mc_recent_pct) < 2.0 and top1_recent_delta <= -0.20:
+                return "🐉 The Hydra (Fake Decentralization)", "MC is stable, but Top 1% dropped instantly. Whales might be splitting wallets to hide dominance.", "orange"
+            if mc_overall_pct <= -20.0:
+                return "💥 The Dump (Fast Rug)", "Massive value wipeout. The narrative is dead or the cabal exited.", "red"
+            if mc_overall_pct <= -5.0 and abs(top1_overall_delta) <= 0.05:
+                return "🩸 The Slow Bleed", "Retail is slowly giving up and selling. Whales are completely dormant. No bounce in sight.", "orange"
+            if mc_overall_pct >= 5.0 and top1_overall_delta <= -0.05:
+                return "🦄 The Organic Moon", "Holy Grail! MC is rising while whales distribute to retail. Pure viral community growth.", "green"
+            if abs(mc_overall_pct) < 2.0 and abs(top1_overall_delta) < 0.02:
+                return "🧟 The Zombie (Limbo)", "Absolute flatline. Bots trading with bots. Waiting for a narrative catalyst.", "gray"
+                
+            return "⚖️ Standard Volatility", "Market is shifting normally. No extreme manipulation detected yet.", "gray"
+
+    # --- STREAMLIT DASHBOARD UI ---
+    st.title("Tool 8 v2.0: Deep Psychology Scanner 🧠")
+
+    if 'adv_analyzer' not in st.session_state:
+        st.session_state.adv_analyzer = AdvancedArchetypeClassifier()
+
+    with st.sidebar:
+        st.header("Live Feed Input")
+        current_time = pd.Timestamp.now()
+        live_mc = st.number_input("Market Cap ($)", value=1500000, step=10000)
+        live_top1 = st.number_input("Top 1% Holdings (%)", value=4.00, step=0.01)
+        live_top10 = st.number_input("Top 10% Holdings (%)", value=20.00, step=0.10)
+        
+        if st.button("Inject Live Data"):
+            st.session_state.adv_analyzer.add_data_point(current_time, live_mc, live_top1, live_top10)
+
+    # Display Dashboard
+    if not st.session_state.adv_analyzer.history.empty:
+        st.subheader("Internal Data Matrix")
+        st.dataframe(st.session_state.adv_analyzer.history.tail(5)) 
+        
+        verdict_title, verdict_desc, color = st.session_state.adv_analyzer.analyze_token()
+        
+        st.markdown("### 🎯 Live Behavioral Verdict")
+        st.markdown(f"<h3 style='color: {color};'>{verdict_title}</h3>", unsafe_allow_html=True)
+        st.info(verdict_desc)
