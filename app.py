@@ -85,9 +85,9 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🐋 Whale Hunter",
     "📊 Coin's State Analysis",
     "🎯 Scalp Scanner (Live)",
-    "💧 Liquidity Pressure Engine"
+    "💧 Liquidity Pressure Engine",
+    "🧠 Deep Psychology Scanner (Tool 8)"  # <--- This is the missing line!
 ])
-
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
 
