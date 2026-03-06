@@ -872,23 +872,34 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
     if 'adv_analyzer' not in st.session_state:
         st.session_state.adv_analyzer = AdvancedArchetypeClassifier()
 
-    with st.sidebar:
-        st.header("Live Feed Input")
-        current_time = pd.Timestamp.now()
+    # Moved inputs to the MAIN page instead of the sidebar
+    st.markdown("### 📥 Live Data Injection")
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
         live_mc = st.number_input("Market Cap ($)", value=1500000, step=10000)
+    with c2:
         live_top1 = st.number_input("Top 1% Holdings (%)", value=4.00, step=0.01)
+    with c3:
         live_top10 = st.number_input("Top 10% Holdings (%)", value=20.00, step=0.10)
         
-        if st.button("Inject Live Data"):
-            st.session_state.adv_analyzer.add_data_point(current_time, live_mc, live_top1, live_top10)
+    if st.button("🚀 Inject Live Data"):
+        current_time = pd.Timestamp.now()
+        st.session_state.adv_analyzer.add_data_point(current_time, live_mc, live_top1, live_top10)
+        st.rerun() # Forces an instant screen refresh
+
+    st.divider()
 
     # Display Dashboard
     if not st.session_state.adv_analyzer.history.empty:
         st.subheader("Internal Data Matrix")
-        st.dataframe(st.session_state.adv_analyzer.history.tail(5)) 
+        st.dataframe(st.session_state.adv_analyzer.history.tail(5), use_container_width=True) 
         
         verdict_title, verdict_desc, color = st.session_state.adv_analyzer.analyze_token()
         
         st.markdown("### 🎯 Live Behavioral Verdict")
         st.markdown(f"<h3 style='color: {color};'>{verdict_title}</h3>", unsafe_allow_html=True)
         st.info(verdict_desc)
+    else:
+        # Show this message when there is no data yet
+        st.info("👋 Welcome to Tool 8! Enter the Market Cap and Whale Percentages above, then click 'Inject Live Data' to start mapping the psychology.")
