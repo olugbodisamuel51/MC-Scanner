@@ -55,11 +55,17 @@ def get_rugcheck_data(contract_address):
     url = f"https://api.rugcheck.xyz/v1/tokens/{contract_address}/report"
     try:
         response = requests.get(url, timeout=5)
-        if response.status_code == 200:
+        
+        # Check if the response is successful AND is actually JSON data (not an HTML maintenance page)
+        if response.status_code == 200 and 'application/json' in response.headers.get('Content-Type', ''):
             return response.json()
-        return None
-    except:
-        return None
+        else:
+            # If it's a maintenance page or error, return an empty dictionary instead of 'None'
+            return {} 
+            
+    except Exception as e:
+        # If the server is completely dead and times out, return an empty dictionary
+        return {}
 
 def send_telegram_alert(message, bot_token, chat_id):
     """Sends a Telegram message and displays errors if it fails."""
