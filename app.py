@@ -818,12 +818,14 @@ elif app_mode == "💧 Liquidity Pressure Engine":
                 
             time.sleep(refresh_rate)
 
-# ==========================================
+    # ==========================================
 # TOOL 8: DEEP PSYCHOLOGY SCANNER
 # ==========================================
 elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
     
     import pandas as pd
+    import time
+    from datetime import datetime
     
     # Define the class logic
     class AdvancedArchetypeClassifier:
@@ -839,38 +841,73 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                 "top1": [top1],
                 "top10": [top10]
             })
+            # Use pd.concat for cleaner dataframe building in modern pandas
             self.history = pd.concat([self.history, new_row], ignore_index=True)
             
         def analyze_token(self):
             """Analyzes time-series data to detect advanced market psychology."""
             if len(self.history) < 3:
-                return "⏳ Gathering Data...", "Need at least 3 data points to establish a trend.", "gray"
+                return "⏳ Gathering Data...", "Need at least 3 data points to establish a baseline and trend.", "gray"
                 
             baseline = self.history.iloc[0]
             prev = self.history.iloc[-2]
             current = self.history.iloc[-1]
             
-            mc_overall_pct = ((current['mc'] - baseline['mc']) / baseline['mc']) * 100 if baseline['mc'] > 0 else 0
-            top1_overall_delta = current['top1'] - baseline['top1']
+            # --- VARIABLES FOR LOGIC ---
+            current_mc = current['mc']
+            prev_mc = prev['mc']
+            baseline_mc = baseline['mc']
             
-            mc_recent_pct = ((current['mc'] - prev['mc']) / prev['mc']) * 100 if prev['mc'] > 0 else 0
-            top1_recent_delta = current['top1'] - prev['top1']
+            current_1pct = current['top1']
+            prev_1pct = prev['top1']
+            baseline_1pct = baseline['top1']
             
-            # --- ADVANCED PSYCHOLOGICAL CLASSIFICATION LOGIC ---
-            if mc_recent_pct <= -5.0 and top1_recent_delta >= 0.10:
-                return "🪤 The Shakeout", "Whales crashed the price to trigger panic, and are now buying your bags at a discount.", "red"
-            if abs(mc_recent_pct) < 2.0 and top1_recent_delta <= -0.20:
-                return "🐉 The Hydra (Fake Decentralization)", "MC is stable, but Top 1% dropped instantly. Whales might be splitting wallets to hide dominance.", "orange"
-            if mc_overall_pct <= -20.0:
-                return "💥 The Dump (Fast Rug)", "Massive value wipeout. The narrative is dead or the cabal exited.", "red"
-            if mc_overall_pct <= -5.0 and abs(top1_overall_delta) <= 0.05:
-                return "🩸 The Slow Bleed", "Retail is slowly giving up and selling. Whales are completely dormant. No bounce in sight.", "orange"
-            if mc_overall_pct >= 5.0 and top1_overall_delta <= -0.05:
-                return "🦄 The Organic Moon", "Holy Grail! MC is rising while whales distribute to retail. Pure viral community growth.", "green"
-            if abs(mc_overall_pct) < 2.0 and abs(top1_overall_delta) < 0.02:
-                return "🧟 The Zombie (Limbo)", "Absolute flatline. Bots trading with bots. Waiting for a narrative catalyst.", "gray"
+            current_10pct = current['top10']
+            prev_10pct = prev['top10']
+            
+            # Deltas
+            mc_delta = current_mc - prev_mc
+            delta_1pct = current_1pct - prev_1pct
+            delta_10pct = current_10pct - prev_10pct
+            
+            noise = 0.05 
+            mc_tolerance = 0.05 
+            mc_round_trip_ceiling = baseline_mc * (1 + mc_tolerance)
+            
+            # --- 1. FARM DETECTOR LOGIC (Highest Priority) ---
+            # Check if a pump actually happened first to avoid false positives on flat charts
+            max_mc = self.history['mc'].max()
+            has_pumped = max_mc > (baseline_mc * (1 + mc_tolerance))
+            
+            if has_pumped:
+                is_mc_reset = current_mc <= mc_round_trip_ceiling
+                is_whale_reloaded = current_1pct >= (baseline_1pct - noise)
                 
-            return "⚖️ Standard Volatility", "Market is shifting normally. No extreme manipulation detected yet.", "gray"
+                if is_mc_reset and is_whale_reloaded:
+                    return "🚫 FARMING OPERATION (Blacklist)", "Devs/Snipers completed a round trip. They swung the pump and bought back the floor.", "red"
+                elif is_mc_reset and not is_whale_reloaded:
+                    return "🟢 HEALTHY RESET", "Market cap reset after a pump, and whales permanently distributed their supply.", "green"
+
+            # --- 2. DIVERGENCE TRAP LOGIC ---
+            if delta_1pct > noise and delta_10pct < -noise:
+                return "🚨 INSIDER CONSOLIDATION (Trap)", "Top wallets are eating mid-tier wallets. High risk of a dump.", "red"
+            elif delta_1pct < -noise and delta_10pct > noise:
+                return "🚨 WALLET SPLITTING", "Whales are hiding tokens in smaller wallets to fake decentralization.", "red"
+
+            # --- 3. STANDARD TREND ANALYSIS ---
+            whale_delta = delta_1pct 
+            
+            if mc_delta > 0 and whale_delta < -noise:
+                return "🟢 ORGANIC GROWTH", "MC is up, whales are distributing. Healthy uptrend.", "green"
+            elif mc_delta > 0 and whale_delta > noise:
+                return "⚠️ MANIPULATIVE PUMP", "MC is up, but whales are centralizing. FOMO trap active.", "orange"
+            elif mc_delta < 0 and whale_delta < -noise:
+                return "🟡 HEALTHY RETRACE", "MC is dropping, but whales are distributing. Finding support.", "orange"
+            elif mc_delta < 0 and whale_delta > noise:
+                return "🩸 PANIC BLEED (Slop)", "Retail is selling, whales are slowly absorbing the floor.", "red"
+
+            # --- 4. CONSOLIDATION ---
+            return "⚪ CONSOLIDATION", "Movements are too small to classify. Waiting for breakout.", "gray"
 
     # --- STREAMLIT DASHBOARD UI ---
     st.title("Tool 8 v2.0: Deep Psychology Scanner 🧠")
@@ -902,6 +939,7 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
         while True:
             try:
                 # 1. Fetch live blockchain data using your utility functions
+                # (Assuming get_dex_data and get_rugcheck_data are defined elsewhere in your script)
                 dex = get_dex_data(token)
                 rug = get_rugcheck_data(token)
                 
@@ -923,7 +961,7 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                 # 3. Inject data into the internal Engine
                 st.session_state.adv_analyzer.add_data_point(current_time, market_cap, top_1_pct, top_10_pct)
                 
-                # --- NEW: CALCULATE 3D TRACKING DELTAS ---
+                # --- CALCULATE 3D TRACKING DELTAS FOR THE UI ---
                 baseline_mc = st.session_state.adv_analyzer.history.iloc[0]['mc']
                 pnl_pct = ((market_cap - baseline_mc) / baseline_mc) * 100 if baseline_mc > 0 else 0
                 
@@ -969,3 +1007,4 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
+            
