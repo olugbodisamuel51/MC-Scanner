@@ -92,7 +92,8 @@ app_mode = st.sidebar.radio("Select Tool", [
     "📊 Coin's State Analysis",
     "🎯 Scalp Scanner (Live)",
     "💧 Liquidity Pressure Engine",
-    "🧠 Deep Psychology Scanner (Tool 8)"  # <--- This is the missing line!
+    "🧠 Deep Psychology Scanner (Tool 8)",
+    "🕵️ Cabal Entry Sniffer (Tool 9)"  # <--- ADD THIS LINE
 ])
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
@@ -1021,3 +1022,149 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
                 
             time.sleep(refresh_rate)
             
+# ==========================================
+# TOOL 9: CABAL ENTRY SNIFFER (DYNAMIC MC)
+# ==========================================
+elif app_mode == "🕵️ Cabal Entry Sniffer (Tool 9)":
+    
+    import pandas as pd
+    import time
+    from datetime import datetime
+
+    class DynamicEntryEngine:
+        def __init__(self):
+            self.history = pd.DataFrame(columns=["timestamp", "mc", "top1", "top10"])
+            
+        def add_data_point(self, timestamp, mc, top1, top10):
+            new_row = pd.DataFrame({"timestamp": [timestamp], "mc": [mc], "top1": [top1], "top10": [top10]})
+            self.history = pd.concat([self.history, new_row], ignore_index=True)
+            
+        def analyze_entry(self):
+            if len(self.history) < 5:
+                return "⏳ Calibrating Floor...", "Gathering data to establish support baseline.", "gray", 0
+                
+            current = self.history.iloc[-1]
+            current_mc = current['mc']
+            
+# --- 1. DYNAMIC TIER DETECTION ---
+            if current_mc < 500_000:
+                tier = "Micro-Cap (Trench Mode)"
+                anomaly_threshold = 2.0  # Needs massive 2%+ delta to filter out retail noise
+                max_healthy_top1 = 15.0  # High initial concentration is normal here
+                max_healthy_top10 = 35.0 # Give trench coins a bit of leeway, but cap at 35%
+            else:
+                tier = "Macro-Cap (Established)"
+                anomaly_threshold = 0.35 # Stealth cabal accumulation (+0.35% is significant)
+                max_healthy_top1 = 8.0   # Should be highly decentralized by now
+                max_healthy_top10 = 25.0 # Macro-caps must be distributed (< 25%)
+                
+        # --- 2. FLOOR DETECTION ---
+            # Look at the last 10 scans to find the local bottom
+            recent_window = self.history.tail(10)
+            local_min_mc = recent_window['mc'].min()
+            
+            # If current MC is within 5% of the local minimum, we are sitting at the "Floor"
+            is_at_floor = current_mc <= (local_min_mc * 1.05)
+            
+            # --- 3. DELTA CALCULATION (Since hitting the floor) ---
+            # Compare current holders to the holders when the local minimum was established
+            floor_row = recent_window[recent_window['mc'] == local_min_mc].iloc[0]
+            delta_10pct = current['top10'] - floor_row['top10']
+            delta_1pct = current['top1'] - floor_row['top1']
+            
+            # --- 4. CABAL ENTRY LOGIC ---
+            # TOXIC SUPPLY CHECK: Evaluate BOTH Top 1% and Top 10%
+            if current['top1'] > max_healthy_top1 or current['top10'] > max_healthy_top10:
+                return f"🛑 TOXIC SUPPLY ({tier})", f"Top 1% holds {current['top1']:.1f}% | Top 10% holds {current['top10']:.1f}%. Exceeds safety limits. Do not enter.", "red", anomaly_threshold
+                
+            if is_at_floor:
+                if delta_10pct >= anomaly_threshold:
+                    return f"🎯 SPRING LOADED! ({tier})", f"Price is at the floor ($ {local_min_mc:,.0f}) and Top 10% spiked by +{delta_10pct:.2f}%. CABAL IS LOADING!", "green", anomaly_threshold
+                elif delta_10pct <= -anomaly_threshold:
+                    return f"🩸 FLOOR FAILING ({tier})", f"Price is at the floor but whales are STILL dumping ({delta_10pct:.2f}%). Support will break.", "red", anomaly_threshold
+                else:
+                    return f"⚖️ WATCHING FLOOR ({tier})", f"Price stabilized at $ {local_min_mc:,.0f}. Waiting for Cabal spike > +{anomaly_threshold}%...", "warning", anomaly_threshold
+            else:
+                # Price is pushing up
+                mc_pump_pct = ((current_mc - local_min_mc) / local_min_mc) * 100
+                if delta_1pct < 0:
+                    return f"🟢 HEALTHY MARKUP ({tier})", f"Price up +{mc_pump_pct:.1f}% from floor. Whales are distributing to retail. Safe to ride.", "green", anomaly_threshold
+                elif delta_1pct > anomaly_threshold / 2:
+                    return f"⚠️ MANIPULATIVE PUMP ({tier})", f"Price up, but Whales are accumulating (+{delta_1pct:.2f}%). Fakeout risk.", "orange", anomaly_threshold
+                else:
+                    return f"📈 TRENDING UP ({tier})", f"Price moving up naturally. Monitor for resistance.", "gray", anomaly_threshold
+
+    # --- UI ---
+    st.title("🕵️ Tool 9: Cabal Entry Sniffer")
+    st.markdown("Dynamic floor-detection engine. Automatically switches sensitivity between Micro-caps and Macro-caps.")
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t9_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 60, 5, key="t9_refresh")
+        
+    is_scanning = st.toggle("🎯 Start Sniper", key="t9_active")
+    
+    if 'entry_engine' not in st.session_state:
+        st.session_state.entry_engine = DynamicEntryEngine()
+    if 't9_current_token' not in st.session_state:
+        st.session_state.t9_current_token = None
+
+    if is_scanning and token:
+        if st.session_state.t9_current_token != token:
+            st.session_state.entry_engine = DynamicEntryEngine()
+            st.session_state.t9_current_token = token
+            
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                
+                market_cap = float(dex.get('fdv', 0))
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
+                top_holders = rug.get('topHolders', [])
+                top_1_pct = top_holders[0].get('pct', 0) if top_holders else 0
+                top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                st.session_state.entry_engine.add_data_point(current_time, market_cap, top_1_pct, top_10_pct)
+                
+                # Fetch Logic
+                verdict_title, verdict_desc, color, target_anomaly = st.session_state.entry_engine.analyze_entry()
+                
+                # Map colors
+                if color == "red": alert_color = "error"
+                elif color == "green": alert_color = "success"
+                elif color == "warning": alert_color = "warning"
+                elif color == "orange": alert_color = "warning"
+                else: alert_color = "info"
+                
+                with dashboard.container():
+                    st.subheader(f"Sniper Target: {symbol}")
+                    
+                    st.markdown("### 🎯 Entry Signal")
+                    if alert_color == "error": st.error(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "success": st.success(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "warning": st.warning(f"### {verdict_title}\n{verdict_desc}")
+                    else: st.info(f"### {verdict_title}\n{verdict_desc}")
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Live Market Cap", f"${market_cap:,.0f}")
+                    m2.metric("Top 10% Cabal", f"{top_10_pct:.2f}%")
+                    m3.metric("Required Anomaly Spike", f"+{target_anomaly}% Δ")
+                    
+                    st.divider()
+                    st.dataframe(st.session_state.entry_engine.history.tail(5), use_container_width=True)
+                    
+            except Exception as e:
+                dashboard.error(f"Error fetching live data: {e}")
+                
+            time.sleep(refresh_rate)
