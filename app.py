@@ -94,6 +94,7 @@ app_mode = st.sidebar.radio("Select Tool", [
     "💧 Liquidity Pressure Engine",
     "🧠 Deep Psychology Scanner (Tool 8)",
     "🕵️ Cabal Entry Sniffer (Tool 9)"  # <--- ADD THIS LINE
+    "🚀 Moon Sniffer (Tool 10)"  # <--- ADD THIS LINE
 ])
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
@@ -1168,3 +1169,146 @@ elif app_mode == "🕵️ Cabal Entry Sniffer (Tool 9)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
+
+
+# ==========================================
+# TOOL 10: MOON SNIFFER (HIT & RUN ENGINE)
+# ==========================================
+elif app_mode == "🚀 Moon Sniffer (Tool 10)":
+    
+    import pandas as pd
+    import time
+    from datetime import datetime
+
+    class MoonSnifferEngine:
+        def __init__(self):
+            # Keeps a rolling window of the last 20 scans to track local ceilings
+            self.history = pd.DataFrame(columns=["timestamp", "mc", "top1", "top10"])
+            
+        def add_data_point(self, timestamp, mc, top1, top10):
+            new_row = pd.DataFrame({"timestamp": [timestamp], "mc": [mc], "top1": [top1], "top10": [top10]})
+            self.history = pd.concat([self.history, new_row], ignore_index=True)
+            # Keep memory lean, only need the last 20 ticks to find a breakout
+            if len(self.history) > 20:
+                self.history = self.history.iloc[1:]
+                
+        def analyze_moon_setup(self):
+            if len(self.history) < 5:
+                return "⏳ Mapping the Chop Zone...", "Gathering baseline data.", "gray", 0, 0
+                
+            current = self.history.iloc[-1]
+            baseline = self.history.iloc[0]
+            
+            current_mc = current['mc']
+            
+            # --- FIND THE CEILING ---
+            local_max_mc = self.history['mc'].max()
+            is_breaking_out = current_mc >= local_max_mc and current_mc > (baseline['mc'] * 1.05)
+            
+            # --- CALCULATE DELTAS ---
+            mc_delta_pct = ((current_mc - baseline['mc']) / baseline['mc']) * 100 if baseline['mc'] > 0 else 0
+            delta_1pct = current['top1'] - baseline['top1']
+            delta_10pct = current['top10'] - baseline['top10']
+            
+            # --- 1. THE EXIT TRAP (The "Funny Delta") ---
+            # MC is stalling/dropping, but top wallets are suddenly BUYING (+1.0% or more)
+            if mc_delta_pct < 5 and (delta_1pct > 1.0 or delta_10pct > 1.5):
+                return "🚨 CABAL RELOADING (EXIT NOW)", f"Price stalled but Top 10% spiked by +{delta_10pct:.2f}%. They are loading the rug.", "red", mc_delta_pct, delta_10pct
+
+            # --- 2. THE GOLDEN DIVERGENCE (Moon Entry) ---
+            # Price is breaking out, AND whales are aggressively SELLING (-1.5% or more)
+            if is_breaking_out and delta_10pct <= -1.5:
+                return "🚀 GOLDEN DIVERGENCE (BUY SIGNAL)", f"MC broke the ceiling (+{mc_delta_pct:.1f}%) while Top 10% dumped {delta_10pct:.2f}%. The gates are open!", "green", mc_delta_pct, delta_10pct
+                
+            # --- 3. FAKEOUT BREAKOUT ---
+            # Price is breaking out, BUT whales are BUYING (Shorting the top)
+            if is_breaking_out and delta_10pct > 0.5:
+                return "🪤 FAKEOUT BREAKOUT (DO NOT BUY)", f"Price broke out, but insiders BOUGHT (+{delta_10pct:.2f}%). This is a liquidity trap.", "orange", mc_delta_pct, delta_10pct
+                
+            # --- 4. THE CHOP ZONE (Farming) ---
+            # Price and holders are just bouncing around with no clear trend
+            if abs(delta_10pct) < 1.0:
+                return "⚖️ THE CHOP ZONE (WAIT)", f"Top 10% is flat ({delta_10pct:+.2f}%). Cabal is farming fees. Do not enter.", "gray", mc_delta_pct, delta_10pct
+                
+            # --- 5. BLEEDING ---
+            if mc_delta_pct < -5:
+                return "🩸 BLEEDING OUT", f"Price dropping (-{mc_delta_pct:.1f}%). No momentum.", "red", mc_delta_pct, delta_10pct
+                
+            return "👀 WATCHING", "Conditions shifting. Waiting for a trigger.", "gray", mc_delta_pct, delta_10pct
+
+    # --- UI ---
+    st.title("🚀 Tool 10: The Moon Sniffer (Hit & Run)")
+    st.markdown("Hunts for the 'Golden Divergence': Market Cap breaks resistance while Whale Supply actively melts.")
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t10_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 60, 5, key="t10_refresh")
+        
+    is_scanning = st.toggle("🚀 Activate Moon Sniffer", key="t10_active")
+    
+    if 'moon_engine' not in st.session_state:
+        st.session_state.moon_engine = MoonSnifferEngine()
+    if 't10_current_token' not in st.session_state:
+        st.session_state.t10_current_token = None
+
+    if is_scanning and token:
+        if st.session_state.t10_current_token != token:
+            st.session_state.moon_engine = MoonSnifferEngine()
+            st.session_state.t10_current_token = token
+            
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                
+                market_cap = float(dex.get('fdv', 0))
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
+                top_holders = rug.get('topHolders', [])
+                top_1_pct = top_holders[0].get('pct', 0) if top_holders else 0
+                top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                st.session_state.moon_engine.add_data_point(current_time, market_cap, top_1_pct, top_10_pct)
+                
+                # Fetch Logic
+                verdict_title, verdict_desc, color, mc_pump, whale_dump = st.session_state.moon_engine.analyze_moon_setup()
+                
+                # Map colors
+                if color == "red": alert_color = "error"
+                elif color == "green": alert_color = "success"
+                elif color == "warning": alert_color = "warning"
+                elif color == "orange": alert_color = "warning"
+                else: alert_color = "info"
+                
+                with dashboard.container():
+                    st.subheader(f"Target: {symbol}")
+                    
+                    st.markdown("### 🔭 Hit & Run Signal")
+                    if alert_color == "error": st.error(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "success": st.success(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "warning": st.warning(f"### {verdict_title}\n{verdict_desc}")
+                    else: st.info(f"### {verdict_title}\n{verdict_desc}")
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Live Market Cap", f"${market_cap:,.0f}", f"{mc_pump:+.2f}% MC Breakout")
+                    m2.metric("Top 10% Cabal", f"{top_10_pct:.2f}%", f"{whale_dump:+.2f}% Supply Melt", delta_color="inverse")
+                    m3.metric("Top 1% Whale", f"{top_1_pct:.2f}%")
+                    
+                    st.divider()
+                    st.markdown("**How to Trade This:** Wait for the green **🚀 GOLDEN DIVERGENCE**. Enter the trade. The absolute second you see a red **🚨 CABAL RELOADING** warning, sell your entire bag.")
+                    st.dataframe(st.session_state.moon_engine.history.tail(5), use_container_width=True)
+                    
+            except Exception as e:
+                dashboard.error(f"Error fetching live data: {e}")
+                
+            time.sleep(refresh_rate)
+                
