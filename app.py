@@ -906,10 +906,23 @@ elif app_mode == "🧠 Deep Psychology Scanner (Tool 8)":
             elif mc_delta < 0 and whale_delta > noise:
                 return "🩸 PANIC BLEED (Slop)", "Retail is selling, whales are slowly absorbing the floor.", "red"
 
-            # --- 4. CONSOLIDATION ---
-            return "⚪ CONSOLIDATION", "Movements are too small to classify. Waiting for breakout.", "gray"
+                        # --- 4. MACRO TREND FALLBACK & CONSOLIDATION ---
+            # If the tick-to-tick movement is totally flat, check the overall session trend
+            macro_mc_pct = ((current_mc - baseline_mc) / baseline_mc) * 100 if baseline_mc > 0 else 0
+            macro_whale_delta = current_1pct - baseline_1pct
 
-    # --- STREAMLIT DASHBOARD UI ---
+            if abs(mc_delta) < 1.0: # If the immediate 10-second movement is essentially $0
+                if macro_mc_pct <= -5.0 and macro_whale_delta >= 0.50:
+                    return "🩸 MACRO BLEED (Stalled)", f"Tick is flat, but overall PnL is {macro_mc_pct:.1f}%. Whales are eating the slow bleed.", "red"
+                elif macro_mc_pct >= 5.0 and macro_whale_delta <= -0.50:
+                    return "🟢 MACRO UPTREND (Stalled)", f"Tick is flat, but overall PnL is +{macro_mc_pct:.1f}%. Whales are distributing.", "green"
+                else:
+                    return "⚪ CONSOLIDATION", "Movements are too small to classify. Waiting for breakout.", "gray"
+            
+            else:
+                return "⚪ CONSOLIDATION", "Movements are too small to classify. Waiting for breakout.", "gray"
+
+--- STREAMLIT DASHBOARD UI ---
     st.title("Tool 8 v2.0: Deep Psychology Scanner 🧠")
     st.markdown("Automated live scanning of market cap and whale concentration to detect cabal manipulation.")
 
