@@ -95,7 +95,9 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🧠 Deep Psychology Scanner (Tool 8)",
     "🕵️ Cabal Entry Sniffer (Tool 9)",  # <--- ADD THIS LINE
     "🚀 Moon Sniffer (Tool 10)",  # <--- ADD THIS LINE
-    "🔮 The Oracle Engine (Tool 11)"  # <--- ADD THIS LINE
+    "🔮 The Oracle Engine (Tool 11)",  # <--- ADD THIS LINE
+    "⚡ The Force Scalper (Tool 12)"  # <--- ADD THIS LINE
+    
 ])
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
@@ -1496,3 +1498,144 @@ elif app_mode == "🔮 The Oracle Engine (Tool 11)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
+# ==========================================
+# TOOL 12: THE FORCE SCALPER (PURE TAPE READER)
+# ==========================================
+elif app_mode == "⚡ The Force Scalper (Tool 12)":
+    
+    import pandas as pd
+    import time
+    from datetime import datetime
+
+    class ForceEngine:
+        def __init__(self):
+            # We only need a short memory to check if supply is shrinking RIGHT NOW
+            self.history = pd.DataFrame(columns=["timestamp", "top10"])
+            
+        def add_data_point(self, timestamp, top10):
+            new_row = pd.DataFrame({"timestamp": [timestamp], "top10": [top10]})
+            self.history = pd.concat([self.history, new_row], ignore_index=True)
+            if len(self.history) > 5:
+                self.history = self.history.iloc[1:]
+
+        def evaluate_force(self, buys, sells, current_top10):
+            if len(self.history) < 2:
+                return "⏳ CALIBRATING TAPE", "Waiting for next tick to calculate supply delta...", "gray", False, False, False
+                
+            baseline_top10 = self.history.iloc[0]['top10']
+            delta_10pct = current_top10 - baseline_top10
+            
+            total_txs = buys + sells
+            buy_ratio = buys / sells if sells > 0 else float(buys)
+            
+            # --- CONDITION 1: TICK VELOCITY ---
+            # Is the crowd actually here? (Target: > 60 TXs in 5m)
+            cond1_pass = total_txs >= 60
+            
+            # --- CONDITION 2: ABSORPTION RATE ---
+            # Are buyers overwhelming sellers? (Target: 1.5x to 2.0x ratio)
+            cond2_pass = buy_ratio >= 1.5
+            
+            # --- CONDITION 3: UNLOCKED SUPPLY ---
+            # Is the Cabal letting it run? (Target: Top 10% is shrinking OR safely under 25%)
+            cond3_pass = delta_10pct < 0 or current_top10 < 25.0
+            
+            # --- THE MASTER SIGNAL ---
+            if cond1_pass and cond2_pass and cond3_pass:
+                return "🟢 THE FORCE IS ALIGNED: SEND IT", "Velocity is high, buys are absorbing, and supply is unlocked. Perfect scalp entry.", "success", cond1_pass, cond2_pass, cond3_pass
+            elif total_txs < 20:
+                return "💀 GHOST TOWN: DO NOT TRADE", "No volume. No velocity. You will be trapped.", "error", cond1_pass, cond2_pass, cond3_pass
+            elif not cond3_pass and cond1_pass:
+                return "🚨 CABAL TRAP: LIQUIDITY WALL", "Volume is high, but the Top 10% is eating it. Do not be their exit liquidity.", "error", cond1_pass, cond2_pass, cond3_pass
+            else:
+                return "🟡 BUILDING FORCE: HOLD FIRE", "Conditions are mixed. Wait for the breakout or walk away.", "warning", cond1_pass, cond2_pass, cond3_pass
+
+    # --- UI ---
+    st.title("⚡ Tool 12: The Force Scalper")
+    st.markdown("Zero noise. Just the 3 raw tape indicators that create God Candles.")
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t12_token")
+    with c2:
+        refresh_rate = st.slider("Refresh (s)", 2, 30, 5, key="t12_refresh")
+        
+    is_scanning = st.toggle("⚡ Read The Tape", key="t12_active")
+    
+    if 'force_engine' not in st.session_state:
+        st.session_state.force_engine = ForceEngine()
+    if 't12_current_token' not in st.session_state:
+        st.session_state.t12_current_token = None
+
+    if is_scanning and token:
+        if st.session_state.t12_current_token != token:
+            st.session_state.force_engine = ForceEngine()
+            st.session_state.t12_current_token = token
+            
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
+                market_cap = float(dex.get('fdv', 0))
+                
+                buys_5m = int(dex.get('txns', {}).get('m5', {}).get('buys', 0))
+                sells_5m = int(dex.get('txns', {}).get('m5', {}).get('sells', 0))
+                total_txs = buys_5m + sells_5m
+                buy_ratio = buys_5m / sells_5m if sells_5m > 0 else float(buys_5m)
+                
+                top_holders = rug.get('topHolders', [])
+                top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                # Feed the Engine
+                st.session_state.force_engine.add_data_point(current_time, top_10_pct)
+                
+                # Evaluate the 3 Conditions
+                title, desc, color, c1_pass, c2_pass, c3_pass = st.session_state.force_engine.evaluate_force(buys_5m, sells_5m, top_10_pct)
+                
+                with dashboard.container():
+                    st.subheader(f"Target: {symbol} | MC: ${market_cap:,.0f}")
+                    
+                    if color == "success": st.success(f"### {title}\n{desc}")
+                    elif color == "error": st.error(f"### {title}\n{desc}")
+                    elif color == "warning": st.warning(f"### {title}\n{desc}")
+                    else: st.info(f"### {title}\n{desc}")
+                    
+                    st.divider()
+                    st.markdown("### 📊 The 3 Golden Indicators")
+                    
+                    # RENDER THE 3 METRICS
+                    col1, col2, col3 = st.columns(3)
+                    
+                    # 1. VELOCITY
+                    velocity_status = "✅ PASS" if c1_pass else "❌ FAIL"
+                    col1.metric("1. 5m TX Velocity", f"{total_txs} TXs", velocity_status, delta_color="normal" if c1_pass else "inverse")
+                    
+                    # 2. ABSORPTION
+                    abs_status = "✅ PASS" if c2_pass else "❌ FAIL"
+                    col2.metric("2. Absorption Rate", f"{buy_ratio:.2f}x Ratio", f"{buys_5m}B / {sells_5m}S | {abs_status}", delta_color="normal" if c2_pass else "inverse")
+                    
+                    # 3. SUPPLY
+                    if len(st.session_state.force_engine.history) >= 2:
+                        delta = top_10_pct - st.session_state.force_engine.history.iloc[0]['top10']
+                    else:
+                        delta = 0
+                    sup_status = "✅ PASS" if c3_pass else "❌ FAIL"
+                    col3.metric("3. Unlocked Supply", f"{top_10_pct:.2f}% (Top 10)", f"Δ {delta:+.2f}% | {sup_status}", delta_color="normal" if c3_pass else "inverse")
+                    
+                    st.caption(f"Last Scan: {current_time} (Refreshing every {refresh_rate}s)")
+                    
+            except Exception as e:
+                dashboard.error(f"Error fetching live data: {e}")
+                
+            time.sleep(refresh_rate)
+            
