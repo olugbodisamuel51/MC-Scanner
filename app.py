@@ -1369,7 +1369,7 @@ elif app_mode == "🔮 The Oracle Engine (Tool 11)":
             # GATE 1: THE TOXICITY & SAFETY REJECTS
             # ==========================================
             if top10 > max_top10 or top1 > 15.0:
-                return "🛑 FATAL REJECT: TOXIC SUPPLY", f"Whales control too much ({top10:.1f}%). Mathematical rug risk is extreme.", "error"
+                return "🛑 FATAL REJECT: TOXIC SUPPLY", f"Whales control too much ({top1:.1f}%). Mathematical rug risk is extreme.", "error"
             if liquidity < (mc * 0.02): # Liquidity is less than 2% of Market Cap
                 return "🛑 FATAL REJECT: PAPER THIN LP", "Liquidity is a mirage. You will be destroyed by slippage. Do not trade.", "error"
             if vol_5m < 3000 and total_txs < 10:
