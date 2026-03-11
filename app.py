@@ -1519,9 +1519,9 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
             if len(self.history) > 5:
                 self.history = self.history.iloc[1:]
 
-        def evaluate_force(self, buys, sells, current_top10, market_cap):
+        def evaluate_force(self, buys, sells, current_top10, market_cap, vol_5m, liquidity):
             if len(self.history) < 2:
-                return "⏳ CALIBRATING TAPE", "Waiting for next tick to calculate supply delta...", "gray", False, False, False, 0, 0, 0, "Calibrating"
+                return "⏳ CALIBRATING TAPE", "Waiting for next tick to calculate supply delta...", "gray", False, False, False, False, False, 0, 0, 0, 0, 0, "Calibrating"
                 
             baseline_top10 = self.history.iloc[0]['top10']
             delta_10pct = current_top10 - baseline_top10
@@ -1529,48 +1529,46 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
             total_txs = buys + sells
             buy_ratio = buys / sells if sells > 0 else float(buys)
             
+            # --- CALCULATE LIQUIDITY SHOCK & HEALTH ---
+            net_ratio = (buys - sells) / total_txs if total_txs > 0 else 0
+            net_usd_vol = vol_5m * net_ratio
+            lp_shock = (net_usd_vol / liquidity) * 100 if liquidity > 0 else 0
+            liq_health = (liquidity / market_cap) * 100 if market_cap > 0 else 0
+            
             # ==========================================
             # DYNAMIC PROGRESSIVE TIERS
             # ==========================================
             if market_cap < 150_000:
                 tier_name = "Tier 1 ($50k-$150k)"
-                req_txs = 60
-                req_ratio = 1.5
-                safe_ceiling = 35.0
+                req_txs = 60; req_ratio = 1.5; safe_ceiling = 35.0; req_shock = 12.0; req_health = 10.0
             elif market_cap < 250_000:
                 tier_name = "Tier 2 ($150k-$250k)"
-                req_txs = 70
-                req_ratio = 1.5
-                safe_ceiling = 33.0
+                req_txs = 70; req_ratio = 1.5; safe_ceiling = 33.0; req_shock = 10.0; req_health = 10.0
             elif market_cap < 500_000:
                 tier_name = "Tier 3 ($250k-$500k)"
-                req_txs = 85
-                req_ratio = 1.5
-                safe_ceiling = 30.0
+                req_txs = 85; req_ratio = 1.5; safe_ceiling = 30.0; req_shock = 8.0; req_health = 10.0
             elif market_cap < 700_000:
                 tier_name = "Tier 4 ($500k-$700k)"
-                req_txs = 100
-                req_ratio = 1.3
-                safe_ceiling = 28.0
+                req_txs = 100; req_ratio = 1.3; safe_ceiling = 28.0; req_shock = 6.0; req_health = 8.0
             elif market_cap < 1_000_000:
                 tier_name = "Tier 5 ($700k-$1M)"
-                req_txs = 120
-                req_ratio = 1.3
-                safe_ceiling = 27.0
+                req_txs = 120; req_ratio = 1.3; safe_ceiling = 27.0; req_shock = 5.0; req_health = 8.0
             else:
                 tier_name = "Tier 6 (>$1M Breakout)"
-                req_txs = 150
-                req_ratio = 1.2
-                safe_ceiling = 26.0
+                req_txs = 150; req_ratio = 1.2; safe_ceiling = 26.0; req_shock = 4.0; req_health = 8.0
 
             # --- EVALUATE CONDITIONS ---
             cond1_pass = total_txs >= req_txs
             cond2_pass = buy_ratio >= req_ratio
             cond3_pass = delta_10pct < 0 or current_top10 < safe_ceiling
+            cond4_pass = lp_shock >= req_shock
+            cond5_pass = liq_health >= req_health
             
             # --- THE MASTER SIGNAL ---
-            if cond1_pass and cond2_pass and cond3_pass:
-                status = ("🟢 THE FORCE IS ALIGNED: SEND IT", "Velocity is high, buys are absorbing, and supply is unlocked. Perfect scalp entry.", "success")
+            if not cond5_pass:
+                status = ("🛑 FATAL: PAPER THIN LP", f"Liquidity is too low ({liq_health:.1f}%). High rug risk and massive slippage. DO NOT TRADE.", "error")
+            elif cond1_pass and cond2_pass and cond3_pass and cond4_pass:
+                status = ("🟢 THE FORCE IS ALIGNED: SEND IT", "Velocity is high, buys are absorbing, supply is unlocked, and volume is shocking the LP. Perfect scalp entry.", "success")
             elif total_txs < (req_txs / 2):
                 status = ("💀 GHOST TOWN: DO NOT TRADE", f"Fails {tier_name} volume requirements. You will be trapped.", "error")
             elif not cond3_pass and cond1_pass:
@@ -1578,11 +1576,11 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
             else:
                 status = ("🟡 BUILDING FORCE: HOLD FIRE", "Conditions are mixed. Wait for the breakout or walk away.", "warning")
 
-            return status[0], status[1], status[2], cond1_pass, cond2_pass, cond3_pass, req_txs, req_ratio, safe_ceiling, tier_name
+            return status[0], status[1], status[2], cond1_pass, cond2_pass, cond3_pass, cond4_pass, cond5_pass, req_txs, req_ratio, safe_ceiling, req_shock, req_health, tier_name
 
     # --- UI ---
     st.title("⚡ Tool 12: The Force Scalper")
-    st.markdown("Zero noise. Just the 3 raw tape indicators that create God Candles.")
+    st.markdown("Zero noise. Just the 5 raw tape indicators that create God Candles.")
 
     c1, c2 = st.columns([3, 1])
     with c1:
@@ -1620,6 +1618,8 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                 
                 symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
                 market_cap = float(dex.get('fdv', 0))
+                liquidity = float(dex.get('liquidity', {}).get('usd', 0))
+                vol_5m = float(dex.get('volume', {}).get('m5', 0))
                 
                 # Lock in the baseline MC for the Session PnL tracker
                 if st.session_state.t12_baseline_mc is None and market_cap > 0:
@@ -1629,8 +1629,6 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                 
                 buys_5m = int(dex.get('txns', {}).get('m5', {}).get('buys', 0))
                 sells_5m = int(dex.get('txns', {}).get('m5', {}).get('sells', 0))
-                total_txs = buys_5m + sells_5m
-                buy_ratio = buys_5m / sells_5m if sells_5m > 0 else float(buys_5m)
                 
                 top_holders = rug.get('topHolders', [])
                 top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
@@ -1639,11 +1637,11 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                 # Feed the Engine
                 st.session_state.force_engine.add_data_point(current_time, top_10_pct)
                 
-                # Evaluate the 3 Conditions
-                title, desc, color, c1_pass, c2_pass, c3_pass, req_txs, req_ratio, safe_ceiling, tier_name = st.session_state.force_engine.evaluate_force(buys_5m, sells_5m, top_10_pct, market_cap)
+                # Evaluate the 5 Conditions
+                title, desc, color, c1, c2, c3, c4, c5, req_txs, req_ratio, safe_ceiling, req_shock, req_health, tier_name = st.session_state.force_engine.evaluate_force(buys_5m, sells_5m, top_10_pct, market_cap, vol_5m, liquidity)
                 
                 with dashboard.container():
-                    st.subheader(f"Target: {symbol} | MC: ${market_cap:,.0f}")
+                    st.subheader(f"Target: {symbol} | MC: ${market_cap:,.0f} | Liq: ${liquidity:,.0f}")
                     
                     # Display PnL with dynamic color
                     pnl_color = "green" if session_pnl >= 0 else "red"
@@ -1659,25 +1657,36 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                         st.info(f"### {title}\n{desc}")
                     
                     st.divider()
-                    st.markdown("### 📊 The 3 Golden Indicators")
+                    st.markdown("### 📊 The 5 Golden Indicators")
                     
-                    col1, col2, col3 = st.columns(3)
+                    # Split into 2 rows so it fits nicely on mobile screens
+                    r1_col1, r1_col2, r1_col3 = st.columns(3)
                     
                     # 1. VELOCITY
-                    velocity_status = "✅ PASS" if c1_pass else "❌ FAIL"
-                    col1.metric("1. 5m TX Velocity", f"{total_txs} TXs", f"Target: {req_txs}+ | {velocity_status}", delta_color="normal" if c1_pass else "inverse")
+                    r1_col1.metric("1. 5m TX Velocity", f"{buys_5m + sells_5m} TXs", f"Target: {req_txs}+ | {'✅ PASS' if c1 else '❌ FAIL'}", delta_color="normal" if c1 else "inverse")
                     
                     # 2. ABSORPTION
-                    abs_status = "✅ PASS" if c2_pass else "❌ FAIL"
-                    col2.metric("2. Absorption Rate", f"{buy_ratio:.2f}x Ratio", f"Target: {req_ratio}x+ | {abs_status}", delta_color="normal" if c2_pass else "inverse")
+                    buy_ratio = buys_5m / sells_5m if sells_5m > 0 else float(buys_5m)
+                    r1_col2.metric("2. Absorption Rate", f"{buy_ratio:.2f}x", f"Target: {req_ratio}x+ | {'✅ PASS' if c2 else '❌ FAIL'}", delta_color="normal" if c2 else "inverse")
                     
                     # 3. SUPPLY
                     if len(st.session_state.force_engine.history) >= 2:
                         delta = top_10_pct - st.session_state.force_engine.history.iloc[0]['top10']
                     else:
                         delta = 0
-                    sup_status = "✅ PASS" if c3_pass else "❌ FAIL"
-                    col3.metric("3. Unlocked Supply", f"{top_10_pct:.2f}% (Top 10)", f"Ceiling: {safe_ceiling}% | {sup_status}", delta_color="normal" if c3_pass else "inverse")
+                    r1_col3.metric("3. Unlocked Supply", f"{top_10_pct:.1f}%", f"Ceiling: {safe_ceiling}% | {'✅ PASS' if c3 else '❌ FAIL'}", delta_color="normal" if c3 else "inverse")
+                    
+                    st.write("") # Spacer
+                    r2_col1, r2_col2 = st.columns(2)
+
+                    # 4. LP SHOCK
+                    net_ratio = (buys_5m - sells_5m) / (buys_5m + sells_5m) if (buys_5m + sells_5m) > 0 else 0
+                    lp_shock = ((vol_5m * net_ratio) / liquidity) * 100 if liquidity > 0 else 0
+                    r2_col1.metric("4. Net LP Shock", f"{lp_shock:+.1f}%", f"Target: {req_shock}%+ | {'✅ PASS' if c4 else '❌ FAIL'}", delta_color="normal" if c4 else "inverse")
+
+                    # 5. LIQUIDITY HEALTH
+                    liq_health = (liquidity / market_cap) * 100 if market_cap > 0 else 0
+                    r2_col2.metric("5. Liquidity Health", f"{liq_health:.1f}%", f"Min: {req_health}% | {'✅ PASS' if c5 else '❌ FAIL'}", delta_color="normal" if c5 else "inverse")
                     
                     st.caption(f"Last Scan: {current_time} (Refreshing every {refresh_rate}s)")
                     
@@ -1685,4 +1694,3 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
-                
