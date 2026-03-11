@@ -95,6 +95,7 @@ app_mode = st.sidebar.radio("Select Tool", [
     "🧠 Deep Psychology Scanner (Tool 8)",
     "🕵️ Cabal Entry Sniffer (Tool 9)",  # <--- ADD THIS LINE
     "🚀 Moon Sniffer (Tool 10)"  # <--- ADD THIS LINE
+    "🔮 The Oracle Engine (Tool 11)"  # <--- ADD THIS LINE
 ])
 st.sidebar.markdown("---")
 st.sidebar.subheader("📱 Alert Settings")
@@ -1312,3 +1313,186 @@ elif app_mode == "🚀 Moon Sniffer (Tool 10)":
                 
             time.sleep(refresh_rate)
                 
+# ==========================================
+# TOOL 11: THE ORACLE ENGINE (MASTER VERDICT)
+# ==========================================
+elif app_mode == "🔮 The Oracle Engine (Tool 11)":
+    
+    import pandas as pd
+    import time
+    from datetime import datetime
+
+    class OracleEngine:
+        def __init__(self):
+            # The Oracle needs to track volume and transactions alongside holder data
+            self.history = pd.DataFrame(columns=[
+                "timestamp", "mc", "top1", "top10", "vol_5m", "buys_5m", "sells_5m"
+            ])
+            
+        def add_data_point(self, timestamp, mc, top1, top10, vol, buys, sells):
+            new_row = pd.DataFrame({
+                "timestamp": [timestamp], "mc": [mc], "top1": [top1], "top10": [top10],
+                "vol_5m": [vol], "buys_5m": [buys], "sells_5m": [sells]
+            })
+            self.history = pd.concat([self.history, new_row], ignore_index=True)
+            if len(self.history) > 15: # Keep the last 15 ticks for a strong baseline
+                self.history = self.history.iloc[1:]
+                
+        def get_master_verdict(self, liquidity, smart_wallets):
+            # Needs at least 4 scans to establish a true velocity baseline
+            if len(self.history) < 4:
+                return "⏳ CALIBRATING THE ORACLE", "Gathering baseline data to calculate supply velocity...", "info"
+                
+            current = self.history.iloc[-1]
+            baseline = self.history.iloc[0]
+            
+            mc = current['mc']
+            top1 = current['top1']
+            top10 = current['top10']
+            vol_5m = current['vol_5m']
+            buys = current['buys_5m']
+            sells = current['sells_5m']
+            
+            # --- DELTA CALCULATIONS ---
+            mc_delta_pct = ((mc - baseline['mc']) / baseline['mc']) * 100 if baseline['mc'] > 0 else 0
+            delta_10pct = top10 - baseline['top10']
+            
+            total_txs = buys + sells
+            buy_ratio = (buys / total_txs * 100) if total_txs > 0 else 50
+            
+            # --- DYNAMIC TIER THRESHOLDS ---
+            is_micro = mc < 500_000
+            max_top10 = 35.0 if is_micro else 25.0
+            anomaly_spike = 2.0 if is_micro else 0.4
+            
+            # ==========================================
+            # GATE 1: THE TOXICITY & SAFETY REJECTS
+            # ==========================================
+            if top10 > max_top10 or top1 > 15.0:
+                return "🛑 FATAL REJECT: TOXIC SUPPLY", f"Whales control too much ({top10:.1f}%). Mathematical rug risk is extreme.", "error"
+            if liquidity < (mc * 0.02): # Liquidity is less than 2% of Market Cap
+                return "🛑 FATAL REJECT: PAPER THIN LP", "Liquidity is a mirage. You will be destroyed by slippage. Do not trade.", "error"
+            if vol_5m < 3000 and total_txs < 10:
+                return "💤 FATAL REJECT: DEAD COIN", "No volume or transaction momentum in the last 5 minutes. The trenches left this coin.", "error"
+
+            # ==========================================
+            # GATE 2: THE DEATH SPIRAL / TRAP (SELL)
+            # ==========================================
+            if mc_delta_pct < 2.0 and delta_10pct > anomaly_spike:
+                return "🚨 IMMEDIATE SELL: CABAL RELOADING", f"Price is stalling, but whales are aggressively buying (+{delta_10pct:.2f}%). They are reloading to dump.", "error"
+            if mc_delta_pct < -10.0 and delta_10pct < 0:
+                return "🩸 IMMEDIATE SELL: CAPITULATION", "Token is bleeding out heavily and whales have abandoned defense. Cut losses.", "error"
+
+            # ==========================================
+            # GATE 3: THE GOLDEN SETUPS (BUY)
+            # ==========================================
+            # Setup A: The Invisible Sweep (Heavy Buys, Price Flat, Cabal Accumulating)
+            if buy_ratio > 70 and abs(mc_delta_pct) < 5 and delta_10pct >= anomaly_spike:
+                if smart_wallets >= 15:
+                    return "🦄 GOD CANDLE INCOMING: CABAL CONFIRMED", f"Insane Buy pressure at the floor AND {smart_wallets} Smart Wallets are in. They are about to send it.", "success"
+                elif smart_wallets >= 5:
+                    return "🎯 STRONG BUY: SPRING LOADED", f"Floor swept with {smart_wallets} Smart Wallets backing the play.", "success"
+                else:
+                    return "⚠️ RISKY BUY: RETAIL TRAP?", f"Floor is being swept, but 0 Smart Wallets are involved. Could be a retail trap.", "warning"
+                
+            # Setup B: The Golden Divergence (Price Ripping, Whales Dumping)
+            if mc_delta_pct > 5.0 and delta_10pct <= -1.0 and buy_ratio > 55:
+                if smart_wallets >= 15:
+                    return "🚀 APING APPROVED: CABAL DISTRIBUTING", f"Price broke out, whales are distributing, and {smart_wallets} Smart Wallets are fueling it. Ride the wave.", "success"
+                else:
+                    return "🎯 MODERATE BUY: GOLDEN DIVERGENCE", f"Breakout confirmed, but low Smart Wallet count ({smart_wallets}). Take profits early.", "success"
+
+            # ==========================================
+            # GATE 4: THE FARMING ZONE (WAIT)
+            # ==========================================
+            if mc_delta_pct > 5.0 and delta_10pct > 0.5:
+                return "🪤 WAIT: FAKEOUT PUMP", f"Price is up, but insiders BOUGHT (+{delta_10pct:.2f}%). This is a liquidity trap. Do not chase.", "warning"
+                
+            return "⚖️ WAIT: THE CHOP ZONE", f"No clear anomalies. Buy ratio is {buy_ratio:.0f}%, holder delta is {delta_10pct:+.2f}%. Just farming fees.", "info"
+
+
+    # --- UI ---
+    st.title("🔮 Tool 11: The Oracle Engine (Smart Edition)")
+    st.markdown("Ultimate Synthesis: Combines 5m Momentum, Liquidity Health, Whale Psychology, and Smart Wallet tracking into a single decision.")
+
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        token = st.text_input("Enter Token Address", key="t11_token")
+    with c2:
+        smart_wallets = st.number_input("Smart Wallets", min_value=0, value=0, key="t11_smart")
+    with c3:
+        refresh_rate = st.slider("Refresh (s)", 2, 60, 5, key="t11_refresh")
+        
+    is_scanning = st.toggle("🔮 Consult The Oracle", key="t11_active")
+    
+    if 'oracle_engine' not in st.session_state:
+        st.session_state.oracle_engine = OracleEngine()
+    if 't11_current_token' not in st.session_state:
+        st.session_state.t11_current_token = None
+
+    if is_scanning and token:
+        # Reset tracker if CA changes
+        if st.session_state.t11_current_token != token:
+            st.session_state.oracle_engine = OracleEngine()
+            st.session_state.t11_current_token = token
+            
+        dashboard = st.empty()
+        
+        while True:
+            try:
+                dex = get_dex_data(token)
+                rug = get_rugcheck_data(token)
+                
+                if not dex or not rug:
+                    dashboard.error("❌ Token not found or API error. Waiting...")
+                    time.sleep(refresh_rate)
+                    continue
+                
+                # Extract metrics
+                market_cap = float(dex.get('fdv', 0))
+                liquidity = float(dex.get('liquidity', {}).get('usd', 0))
+                symbol = dex.get('baseToken', {}).get('symbol', 'Unknown')
+                
+                vol_5m = float(dex.get('volume', {}).get('m5', 0))
+                buys_5m = int(dex.get('txns', {}).get('m5', {}).get('buys', 0))
+                sells_5m = int(dex.get('txns', {}).get('m5', {}).get('sells', 0))
+                
+                top_holders = rug.get('topHolders', [])
+                top_1_pct = top_holders[0].get('pct', 0) if top_holders else 0
+                top_10_pct = sum(h.get('pct', 0) for h in top_holders[:10])
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                # Feed the Oracle
+                st.session_state.oracle_engine.add_data_point(
+                    current_time, market_cap, top_1_pct, top_10_pct, vol_5m, buys_5m, sells_5m
+                )
+                
+                # Get Verdict
+                verdict_title, verdict_desc, alert_color = st.session_state.oracle_engine.get_master_verdict(liquidity, smart_wallets)
+                
+                # Render Dashboard
+                with dashboard.container():
+                    st.subheader(f"Oracle Target: {symbol}")
+                    
+                    st.markdown("### 👑 MASTER VERDICT")
+                    if alert_color == "error": st.error(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "success": st.success(f"### {verdict_title}\n{verdict_desc}")
+                    elif alert_color == "warning": st.warning(f"### {verdict_title}\n{verdict_desc}")
+                    else: st.info(f"### {verdict_title}\n{verdict_desc}")
+                    
+                    st.divider()
+                    st.markdown("### 🔍 Live Underlying Data")
+                    
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Market Cap", f"${market_cap:,.0f}")
+                    m2.metric("Liquidity", f"${liquidity:,.0f}")
+                    m3.metric("5m Tx Ratio", f"{buys_5m}B / {sells_5m}S")
+                    m4.metric("Top 10% Cabal", f"{top_10_pct:.2f}%")
+                    
+                    st.caption(f"Last Scan: {current_time} (Refreshing every {refresh_rate}s) | Manual Smart Wallets: {smart_wallets}")
+                    st.dataframe(st.session_state.oracle_engine.history.tail(5), use_container_width=True)
+                    
+            except Exception as e:
+                dashboard.error(f"Error fetching live data: {e}")
+                
+            time.sleep(refresh_rate)
