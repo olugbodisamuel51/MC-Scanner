@@ -94,7 +94,7 @@ app_mode = st.sidebar.radio("Select Tool", [
     "💧 Liquidity Pressure Engine",
     "🧠 Deep Psychology Scanner (Tool 8)",
     "🕵️ Cabal Entry Sniffer (Tool 9)",  # <--- ADD THIS LINE
-    "🚀 Moon Sniffer (Tool 10)"  # <--- ADD THIS LINE
+    "🚀 Moon Sniffer (Tool 10)",  # <--- ADD THIS LINE
     "🔮 The Oracle Engine (Tool 11)"  # <--- ADD THIS LINE
 ])
 st.sidebar.markdown("---")
