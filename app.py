@@ -1550,19 +1550,19 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
             # ==========================================
             if market_cap < 150_000:
                 tier_name = "Tier 1 ($50k-$150k)"
-                req_txs = 60; req_ratio = 1.5; safe_ceiling = 35.0; safe_top1 = 15.0; req_shock = 12.0; req_health = 10.0
+                req_txs = 60; req_ratio = 1.5; safe_ceiling = 30.0; safe_top1 = 15.0; req_shock = 12.0; req_health = 10.0
             elif market_cap < 250_000:
                 tier_name = "Tier 2 ($150k-$250k)"
-                req_txs = 70; req_ratio = 1.5; safe_ceiling = 33.0; safe_top1 = 12.0; req_shock = 10.0; req_health = 10.0
+                req_txs = 70; req_ratio = 1.5; safe_ceiling = 28.0; safe_top1 = 12.0; req_shock = 10.0; req_health = 10.0
             elif market_cap < 500_000:
                 tier_name = "Tier 3 ($250k-$500k)"
-                req_txs = 85; req_ratio = 1.5; safe_ceiling = 30.0; safe_top1 = 10.0; req_shock = 8.0; req_health = 10.0
+                req_txs = 85; req_ratio = 1.5; safe_ceiling = 27.0; safe_top1 = 10.0; req_shock = 8.0; req_health = 10.0
             elif market_cap < 700_000:
                 tier_name = "Tier 4 ($500k-$700k)"
-                req_txs = 100; req_ratio = 1.3; safe_ceiling = 28.0; safe_top1 = 8.0; req_shock = 6.0; req_health = 8.0
+                req_txs = 100; req_ratio = 1.3; safe_ceiling = 26.0; safe_top1 = 8.0; req_shock = 6.0; req_health = 8.0
             elif market_cap < 1_000_000:
                 tier_name = "Tier 5 ($700k-$1M)"
-                req_txs = 120; req_ratio = 1.3; safe_ceiling = 27.0; safe_top1 = 7.0; req_shock = 5.0; req_health = 8.0
+                req_txs = 120; req_ratio = 1.3; safe_ceiling = 25.0; safe_top1 = 7.0; req_shock = 5.0; req_health = 8.0
             else:
                 tier_name = "Tier 6 (>$1M Breakout)"
                 req_txs = 150; req_ratio = 1.2; safe_ceiling = 26.0; safe_top1 = 5.0; req_shock = 4.0; req_health = 8.0
