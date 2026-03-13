@@ -1498,6 +1498,7 @@ elif app_mode == "🔮 The Oracle Engine (Tool 11)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
+
 # ==========================================
 # TOOL 12: THE FORCE SCALPER (PURE TAPE READER)
 # ==========================================
@@ -1569,7 +1570,7 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
             # --- EVALUATE CONDITIONS ---
             cond1_pass = total_txs >= req_txs
             cond2_pass = buy_ratio >= req_ratio
-            cond3_pass = delta_5m_top10 <= 0 or current_top10 < safe_ceiling
+            cond3_pass = (delta_5m_top10 < 0) or (current_top10 < safe_ceiling)  # <--- FIXED LOGIC
             cond4_pass = lp_shock >= req_shock
             cond5_pass = liq_health >= req_health
             cond6_pass = current_top1 < safe_top1
@@ -1715,3 +1716,5 @@ elif app_mode == "⚡ The Force Scalper (Tool 12)":
                 dashboard.error(f"Error fetching live data: {e}")
                 
             time.sleep(refresh_rate)
+
+
